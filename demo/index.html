@@ -1,0 +1,1339 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E7C66">
+<meta name="description" content="Xóm Mình – bản demo: điểm danh, rủ kèo, miếu Thần Tài cho hội bạn và các gia đình.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='22' cy='32' r='14' fill='%23E8962A'/%3E%3Ccircle cx='44' cy='32' r='14' fill='%230E7C66'/%3E%3C/svg%3E">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Xóm Mình</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700&family=Noto+Serif:wght@700&display=swap">
+<style>
+/* Layout: one phone-width column, sticky header, 5-tab bottom bar; cards only for things you act on */
+:root{
+  --bg:#F1F5F3; --surface:#FFFFFF; --ink:#1B2A27; --muted:#566963; --line:#D8E2DE;
+  --accent:#0E7C66; --accent-ink:#FFFFFF; --accent-soft:#DCEFE9;
+  --sun:#E8962A; --sun-soft:#FCEFD9; --sun-ink:#7A4A06;
+  --danger:#BF4637; --shadow:0 1px 2px rgba(20,40,35,.06),0 6px 18px rgba(20,40,35,.06);
+  --f-display:"Baloo 2","Be Vietnam Pro",system-ui,sans-serif;
+  --f-body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-serif:"Noto Serif",Georgia,serif;
+  --nav-h:66px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1614; --surface:#16211E; --ink:#E4EEEA; --muted:#9AADA6; --line:#283632;
+  --accent:#3DBE9C; --accent-ink:#06120F; --accent-soft:#163A31;
+  --sun:#F0AE4C; --sun-soft:#3A2D16; --sun-ink:#F6CF8E;
+  --danger:#E57B6E; --shadow:0 1px 2px rgba(0,0,0,.3);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1614; --surface:#16211E; --ink:#E4EEEA; --muted:#9AADA6; --line:#283632;
+  --accent:#3DBE9C; --accent-ink:#06120F; --accent-soft:#163A31;
+  --sun:#F0AE4C; --sun-soft:#3A2D16; --sun-ink:#F6CF8E;
+  --danger:#E57B6E; --shadow:0 1px 2px rgba(0,0,0,.3);
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--accent)}
+:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px;border-radius:8px}
+.app{max-width:480px;margin:0 auto;padding-bottom:calc(var(--nav-h) + 28px + env(safe-area-inset-bottom,0px))}
+.app.claiming{padding-bottom:40px}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 10px}
+.brand{font-family:var(--f-display);font-weight:800;font-size:26px;line-height:1;display:flex;align-items:center;gap:8px}
+.brand .dot{width:12px;height:12px;border-radius:50%;background:var(--sun);box-shadow:14px 0 0 var(--accent)}
+.brand span{margin-left:14px}
+.who{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 14px 4px 4px;font-size:14px;font-weight:600;min-height:44px}
+.demo-tag{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--sun-ink);background:var(--sun-soft);border-radius:6px;padding:2px 8px;display:inline-block}
+
+.av{width:36px;height:36px;border-radius:50%;display:inline-grid;place-items:center;font-weight:700;font-size:13px;flex:none;letter-spacing:-.02em;
+  background:color-mix(in srgb,hsl(var(--h) 65% 50%) 24%,var(--surface));color:var(--ink);border:2px solid var(--surface)}
+.av.sm{width:30px;height:30px;font-size:11.5px}
+.stack{display:flex}.stack .av{margin-left:-8px}.stack .av:first-child{margin-left:0}
+
+h1{font-family:var(--f-display);font-weight:800;font-size:30px;line-height:1.1;margin:6px 0 2px;text-wrap:balance}
+h2{font-family:var(--f-display);font-weight:700;font-size:21px;margin:0;line-height:1.2}
+.sub{color:var(--muted);margin:0}
+.small{font-size:14px}
+.section{display:flex;flex-direction:column;gap:12px;margin-top:26px}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.link{background:none;border:0;color:var(--accent);font-weight:700;padding:0 4px;font-size:15px;min-height:44px}
+.view{display:flex;flex-direction:column}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
+.checkin{background:var(--accent);color:var(--accent-ink);border:0;margin-top:16px}
+.checkin h2{color:var(--accent-ink)}
+.checkin p{margin:4px 0 12px;opacity:.9;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;font-size:15px;font-weight:500;display:inline-flex;align-items:center;gap:6px;min-height:44px}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink);font-weight:600}
+.checkin .chip{background:color-mix(in srgb,var(--accent-ink) 15%,transparent);border-color:transparent;color:var(--accent-ink)}
+.checkin .chip[aria-pressed="true"]{background:var(--accent-ink);color:var(--accent)}
+.done-strip{margin-top:16px;display:flex;align-items:center;gap:12px;padding:10px 10px 10px 14px;background:var(--accent-soft);border:0;box-shadow:none}
+.done-strip .em{font-size:26px}
+.done-strip .grow{flex:1;min-width:0;line-height:1.3}
+.streak{font-family:var(--f-display);font-weight:800;font-size:15px;background:var(--sun);color:#2B1A02;border-radius:999px;padding:2px 12px;white-space:nowrap}
+
+.list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line);min-height:60px}
+.row:first-child{border-top:0}
+.row .grow{flex:1;min-width:0}
+.name{font-weight:700;line-height:1.3}
+.meta{color:var(--muted);font-size:14px}
+.people{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.pst{font-size:13.5px;font-weight:600;border-radius:999px;padding:2px 10px;background:var(--accent-soft);white-space:nowrap}
+.pst.off{background:var(--bg);color:var(--muted);font-weight:500}
+.pst.maybe{background:var(--sun-soft);color:var(--sun-ink)}
+.pst.none{background:transparent;border:1px dashed var(--line);color:var(--muted);font-weight:500}
+
+.kcard{display:flex;flex-direction:column;gap:12px}
+.ktop{display:flex;gap:12px;align-items:flex-start;background:none;border:0;padding:0;text-align:left;width:100%}
+.kicon{width:48px;height:48px;border-radius:14px;background:var(--sun-soft);display:grid;place-items:center;font-size:25px;flex:none}
+.ktitle{font-weight:700;font-size:17px;line-height:1.3}
+.kmeta{color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:1px;margin-top:2px}
+.kwhen{font-weight:600;color:var(--ink)}
+.badge{font-size:13px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap;margin-left:auto;flex:none}
+.badge.lock{background:var(--accent);color:var(--accent-ink)}
+.badge.wait{background:var(--sun-soft);color:var(--sun-ink)}
+.progress{display:flex;align-items:center;gap:10px}
+.bar{flex:1;height:8px;border-radius:99px;background:var(--bg);overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
+.progress small{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rsvp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rsvp button{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 4px;font-weight:700;font-size:15px;min-height:46px}
+.rsvp button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.rsvp button.maybe[aria-pressed="true"]{border-color:var(--sun);background:var(--sun-soft);color:var(--sun-ink)}
+.rsvp button.no[aria-pressed="true"]{border-color:var(--line);background:var(--bg);color:var(--muted)}
+.going{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);flex-wrap:wrap}
+.kfoot{display:flex;justify-content:space-between;align-items:center;gap:8px}
+
+.btn{border:0;border-radius:14px;padding:12px 16px;font-weight:700;background:var(--accent);color:var(--accent-ink);min-height:48px;font-size:16px}
+.btn.ghost{background:var(--surface);color:var(--ink);border:1.5px solid var(--line)}
+.btn.sun{background:var(--sun);color:#2B1A02}
+.btn.danger{background:var(--danger);color:#fff}
+.btn.block{width:100%}
+.btn:disabled{opacity:.55;cursor:default}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:4px;margin-top:14px}
+.seg button{min-height:42px;border:0;background:none;border-radius:10px;font-weight:700;color:var(--muted);font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink)}
+.pipin{background:var(--sun);color:#2B1A02;font-size:11px;border-radius:99px;padding:0 6px;margin-left:4px}
+
+.host-open{border:2px dashed var(--sun);background:var(--sun-soft);box-shadow:none}
+.host-open .ktitle{color:var(--sun-ink)}
+.hostline{display:flex;align-items:center;gap:10px;font-size:15px}
+.note{font-size:15px;background:var(--bg);border-radius:12px;padding:10px 12px;margin:0}
+.gold .rank{font-family:var(--f-display);font-weight:800;font-size:20px;width:26px;text-align:center;color:var(--sun)}
+.back{background:none;border:0;color:var(--accent);font-weight:700;font-size:16px;padding:0;min-height:44px;align-self:flex-start}
+
+.fam-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:360px){.fam-grid{grid-template-columns:1fr}}
+.fam{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.fam.mine{border-color:var(--accent)}
+.fam .name{font-size:15px}
+.fam .meta{font-size:13.5px}
+.pending{font-size:13px;color:var(--sun-ink);background:var(--sun-soft);border-radius:8px;padding:4px 8px}
+.pending button{background:none;border:0;color:inherit;font-weight:700;text-decoration:underline;padding:0;font-size:13px}
+.tags{display:flex;gap:4px;flex-wrap:wrap}
+.tag{font-size:12.5px;font-weight:600;border-radius:6px;padding:1px 7px;background:var(--bg);color:var(--muted)}
+.tag.hot{background:var(--sun-soft);color:var(--sun-ink)}
+.date{width:48px;flex:none;text-align:center;border-radius:12px;background:var(--accent-soft);padding:4px 0;line-height:1.1}
+.date b{display:block;font-family:var(--f-display);font-size:21px}
+.date small{font-size:12px;font-weight:600;color:var(--muted)}
+
+.poll button{display:block;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;position:relative;overflow:hidden;margin-top:8px;min-height:46px}
+.poll button[aria-pressed="true"]{border-color:var(--accent)}
+.poll .fill{position:absolute;inset:0 auto 0 0;background:var(--accent-soft);transition:width .3s}
+.poll .lbl{position:relative;display:flex;justify-content:space-between;gap:8px;font-weight:600;font-size:15px}
+.poll .lbl small{font-variant-numeric:tabular-nums;color:var(--muted);font-size:14px}
+
+/* chat */
+.thread{display:flex;flex-direction:column;gap:10px}
+.msg{display:flex;gap:8px;align-items:flex-end;max-width:88%}
+.msg.me{align-self:flex-end;flex-direction:row-reverse}
+.bubble{background:var(--surface);border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:8px 12px;min-width:0;overflow-wrap:anywhere}
+.msg.me .bubble{background:var(--accent);color:var(--accent-ink);border-color:transparent;border-radius:16px 16px 4px 16px}
+.bubble .by{font-size:13px;font-weight:700;color:var(--accent);display:block}
+.bubble .tm{font-size:12px;opacity:.7;display:block;text-align:right}
+.sys{align-self:center;font-size:13.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 12px;text-align:center;max-width:95%}
+.pin{display:flex;gap:10px;align-items:flex-start;background:var(--sun-soft);color:var(--sun-ink);border-radius:14px;padding:10px 12px;font-size:14.5px}
+.pin b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase}
+.composer{position:sticky;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));display:flex;gap:8px;background:var(--bg);padding-block:10px;margin-top:12px;z-index:4}
+.composer input{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:999px;padding:10px 16px;background:var(--surface);min-height:46px}
+.composer button{border:0;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-weight:700;padding:0 18px;min-height:46px}
+.day-sep{align-self:center;font-size:12.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+
+/* altar: a deliberately single-look panel, same in both themes */
+.altar{border-radius:20px;overflow:hidden;background:#3A0D0B;box-shadow:var(--shadow);margin-top:14px}
+.altar svg{display:block;width:100%;height:auto}
+.smoke{fill:none;stroke:rgba(255,240,225,.42);stroke-width:2.4;stroke-linecap:round;animation:rise 4.2s ease-in infinite;transform-box:fill-box;transform-origin:50% 100%}
+@keyframes rise{0%{opacity:0;transform:translateY(8px) scaleY(.6)}30%{opacity:.85}100%{opacity:0;transform:translateY(-26px) scaleY(1.15)}}
+.flame{animation:flick 1.4s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 100%}
+@keyframes flick{to{transform:scale(.86,1.1)}}
+.ember{animation:glow 1.8s ease-in-out infinite alternate}
+@keyframes glow{to{opacity:.55}}
+.lunar{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-top:14px}
+.lunar .moon{width:44px;height:44px;border-radius:50%;flex:none;background:var(--sun-soft);display:grid;place-items:center;font-family:var(--f-display);font-weight:800;color:var(--sun-ink);font-size:18px}
+details.prayer{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:4px 16px}
+details.prayer summary{font-weight:700;min-height:48px;display:flex;align-items:center;cursor:pointer}
+details.prayer p{white-space:pre-line;font-family:var(--f-serif);font-weight:400;font-size:15.5px;line-height:1.75;margin:0 0 14px}
+.altar-teaser{display:flex;gap:12px;align-items:center;background:#4A1310;color:#F6E3C2;border-radius:18px;padding:14px;margin-top:14px}
+.altar-teaser .grow{flex:1;min-width:0;line-height:1.35}
+.altar-teaser b{color:#F6D27A}
+.altar-teaser button{background:#F6D27A;color:#3A0D0B;border:0;border-radius:12px;font-weight:700;padding:0 14px;min-height:44px;white-space:nowrap}
+
+/* claim flow */
+.claim{display:flex;flex-direction:column;gap:16px;padding-top:8px}
+.hello{background:var(--accent);color:var(--accent-ink);border-radius:22px;padding:22px 18px}
+.hello h1{color:var(--accent-ink);margin:4px 0}
+.hello p{margin:0;opacity:.9}
+.pick{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;min-height:64px;font-weight:700;font-size:17px}
+.pick:disabled{opacity:.6;cursor:default}
+.pick small{display:block;font-weight:500;font-size:14px;color:var(--muted)}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;min-height:52px;font-weight:700;font-size:16px;width:100%}
+.gbtn i{font-style:normal;width:26px;height:26px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-weight:800}
+.steps{display:flex;gap:6px}.steps i{flex:1;height:5px;border-radius:9px;background:var(--line)}.steps i.on{background:var(--accent)}
+
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--surface);border-top:1px solid var(--line);
+  padding:4px max(6px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px))}
+nav.tabs .in{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+nav.tabs button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;font-size:12.5px;font-weight:600;color:var(--muted);min-height:56px;position:relative}
+nav.tabs button svg{width:25px;height:25px}
+nav.tabs button[aria-current="page"]{color:var(--accent)}
+nav.tabs .pip{position:absolute;top:2px;left:calc(50% + 6px);background:var(--sun);color:#2B1A02;font-size:11px;font-weight:700;border-radius:99px;padding:0 6px;line-height:17px}
+
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:480px;border-radius:22px 22px 0 0;max-height:90%;overflow:auto;
+  padding:20px max(18px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:14px;animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:.5}}
+form.stackf{display:flex;flex-direction:column;gap:14px}
+label.f{font-size:14px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;gap:6px;min-width:0}
+.f input,.f textarea,.f select,.kid-row input{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg);font-size:16px;width:100%;min-height:46px;color:var(--ink)}
+.check{display:flex;align-items:center;gap:10px;font-size:15px;min-height:44px}
+.check input{width:22px;height:22px;accent-color:var(--accent)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kid-row{display:grid;grid-template-columns:1fr 1fr 44px;gap:8px;align-items:center}
+.kid-row button{min-height:44px;border:1.5px solid var(--line);background:var(--surface);border-radius:12px;font-size:18px;color:var(--muted)}
+.group-title{font-family:var(--f-display);font-weight:700;font-size:18px;margin:6px 0 -4px}
+.linkbox{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);border:1.5px dashed var(--accent);border-radius:12px;padding:12px;font-size:15px;overflow-wrap:anywhere;user-select:all}
+.toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;background:var(--ink);color:var(--bg);
+  padding:10px 16px;border-radius:12px;font-weight:600;font-size:15px;max-width:calc(100% - 32px);text-align:center;box-shadow:var(--shadow)}
+
+/* chibi + miếu */
+.av{overflow:hidden;padding:0}
+.av svg{width:100%;height:100%;display:block}
+.fav{display:inline-flex;flex:none}
+.fav .av{margin-left:0}.fav .av+.av{margin-left:-12px}
+.stack .fav{margin-left:-10px}.stack .fav:first-child{margin-left:0}
+.gate{display:flex;gap:12px;align-items:center;background:linear-gradient(160deg,#5A1712,#33100C);color:#F6E3C2;border-radius:18px;padding:10px 14px 10px 8px;margin-top:14px;border:0;width:100%;text-align:left;font:inherit;box-shadow:var(--shadow)}
+.gate svg{width:96px;flex:none}
+.gate .grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;line-height:1.35}
+.gate b{color:#F6D27A;font-family:var(--f-display);font-size:19px;font-weight:800}
+.gate .g-meta{font-size:14px;opacity:.92}
+.gate .go{align-self:flex-start;margin-top:6px;background:#F6D27A;color:#3A0D0B;border-radius:10px;padding:6px 12px;font-weight:700;font-size:15px}
+.gate.fest .lant,.scene .lant{animation:sway 2.4s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 0}
+.gate.fest .lant ellipse{filter:drop-shadow(0 0 4px #FFB54A)}
+@keyframes sway{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
+.scene{position:relative;isolation:isolate;aspect-ratio:360/260;max-width:100%;border-radius:20px;overflow:hidden;margin-top:14px;background:#D8C4A2;box-shadow:var(--shadow)}
+.scene-bg{position:absolute;inset:0;width:100%;height:100%}
+.ch{position:absolute;width:12.5%;transform:translateX(-50%);background:none;border:0;padding:0;cursor:pointer}
+.ch.kid{width:9.5%}
+.ch.static{position:relative;transform:none;width:110px;cursor:default}
+.ch svg{display:block;width:100%;height:auto;overflow:visible}
+.ch.moving{transition:left var(--t,2s) linear,bottom var(--t,2s) linear}
+.ch .hands{display:none}
+.ch.praying .hands{display:inline}.ch.praying .arm-l,.ch.praying .arm-r{display:none}
+.ch .upper{transform-box:view-box;transform-origin:30px 72px}
+.ch.bowing .upper{animation:bow .8s ease-in-out 3}
+@keyframes bow{50%{transform:translateY(6px) scale(.94)}}
+.ch.idle svg{animation:breathe 3.2s ease-in-out infinite;animation-delay:var(--d,0s)}
+@keyframes breathe{50%{transform:translateY(-1.6px)}}
+.ch.walking svg{animation:hop .36s ease-in-out infinite alternate}
+@keyframes hop{to{transform:translateY(-3px)}}
+.ch.walking .leg-l{animation:step .36s infinite alternate}.ch.walking .leg-r{animation:step .36s infinite alternate-reverse}
+@keyframes step{from{transform:translateY(-2.5px)}to{transform:translateY(0)}}
+.ch.walking .arm-l,.ch.walking .arm-r{transform-box:fill-box;transform-origin:50% 0;animation:swing .36s infinite alternate}
+.ch.walking .arm-r{animation-direction:alternate-reverse}
+@keyframes swing{from{transform:rotate(14deg)}to{transform:rotate(-14deg)}}
+.say{position:absolute;transform:translate(-50%,-100%);background:#FFFDF7;color:#2A1A10;border-radius:12px;padding:6px 10px;font-size:13px;line-height:1.35;max-width:62%;z-index:300;box-shadow:0 4px 14px rgba(0,0,0,.25);pointer-events:none}
+.doors{position:absolute;inset:0;display:flex;z-index:250;pointer-events:none}
+.doors i{flex:1;background-color:#7A1C12;background-image:radial-gradient(circle,#E9B85A 2.2px,transparent 2.8px);background-size:22px 22px;background-position:11px 11px;border:3px solid #B8822A}
+.doors i:first-child{animation:dl 1.1s .3s ease-in-out forwards}.doors i:last-child{animation:dr 1.1s .3s ease-in-out forwards}
+@keyframes dl{to{transform:translateX(-102%)}}@keyframes dr{to{transform:translateX(102%)}}
+.ed-preview{display:flex;justify-content:center;background:var(--bg);border-radius:16px;padding:14px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{width:58px;height:58px;border-radius:14px;border:2px solid var(--line);background:var(--bg);padding:4px}
+.opt[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.opt svg{width:100%;height:100%}
+.sw{width:44px;height:44px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 0 0 1.5px var(--line)}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 3px var(--accent)}
+
+.scene{position:relative;width:250%;max-width:none;aspect-ratio:900/260;margin:0;border-radius:0;box-shadow:none}
+.scene-wrap{position:relative;margin-top:14px;border-radius:20px;overflow:hidden;box-shadow:var(--shadow);isolation:isolate;background:#D8C4A2}
+.scene-scroll{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.scene-scroll::-webkit-scrollbar{display:none}
+.ch{width:5%}.ch.kid{width:3.8%}
+.npc{position:absolute;width:6.2%;transform:translateX(-50%);background:none;border:0;padding:0;cursor:pointer}
+.npc svg{display:block;width:100%;height:auto;overflow:visible;animation:breathe 3s ease-in-out infinite}
+.npc-tag{position:absolute;left:50%;bottom:-2px;transform:translate(-50%,100%);white-space:nowrap;font-size:11px;font-weight:700;background:rgba(40,12,8,.78);color:#F6E3C2;border-radius:999px;padding:1px 8px}
+.npc .fan{transform-box:fill-box;transform-origin:0 100%;animation:fan 1.6s ease-in-out infinite alternate}
+@keyframes fan{to{transform:rotate(-18deg)}}
+.npc .tube{transform-box:fill-box;transform-origin:50% 100%;animation:tubeshake 4s ease-in-out infinite}
+@keyframes tubeshake{0%,80%,100%{transform:rotate(0)}84%{transform:rotate(-10deg)}88%{transform:rotate(10deg)}92%{transform:rotate(-8deg)}96%{transform:rotate(6deg)}}
+.pan{position:absolute;top:10px;z-index:260;background:rgba(40,12,8,.72);color:#F6E3C2;border:0;border-radius:999px;padding:0 12px;min-height:40px;font-weight:700;font-size:13px}
+.pan.l{left:10px}.pan.r{right:10px}
+.gate .g-thay{font-size:13px;font-style:italic;opacity:.85;margin-top:2px}
+.npc-sheet{display:flex;flex-direction:column;gap:14px}
+.npc-head{display:flex;gap:12px;align-items:flex-start}
+.npc-face{width:64px;flex:none;background:var(--sun-soft);border-radius:16px;padding:4px 6px 0;overflow:hidden;height:72px}
+.npc-face svg{width:100%;height:auto;display:block}
+.npc-head b{font-family:var(--f-display);font-size:19px}
+.npc-line{background:var(--bg);border-radius:4px 14px 14px 14px;padding:8px 12px;margin-top:4px;font-size:15px}
+.seg3{grid-template-columns:repeat(3,1fr);margin-top:0}
+.tube-box{position:relative;display:flex;justify-content:center;align-items:flex-end;gap:18px;background:linear-gradient(#5A1712,#33100C);border-radius:16px;padding:16px;min-height:170px}
+.tube-box svg{width:96px;height:auto}
+.shaking{animation:shk .16s linear infinite alternate;transform-origin:50% 100%}
+@keyframes shk{from{transform:rotate(-9deg)}to{transform:rotate(9deg)}}
+.stick-fell{width:22px;height:120px;background:#D9A84E;border-radius:4px;border-top:14px solid #C0302A;display:flex;align-items:center;justify-content:center;animation:fall .6s ease-out;transform:rotate(-8deg)}
+.stick-fell span{writing-mode:vertical-rl;font-family:var(--f-serif);font-weight:700;color:#5A220F;font-size:16px}
+@keyframes fall{from{transform:translateY(-60px) rotate(30deg);opacity:0}}
+.coins{display:flex;gap:10px;align-self:center}
+.coin{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;border:3px solid #B8822A;transition:transform .3s}
+.coin i{width:12px;height:12px;background:#33100C;border-radius:2px}
+.coin.up{background:radial-gradient(circle at 35% 35%,#FBE6A6,#E9B85A)}
+.coin.down{background:radial-gradient(circle at 35% 35%,#A87A45,#6A4220)}
+.coins.flip .coin{animation:cflip .35s linear infinite}
+.coins.flip .coin:last-child{animation-duration:.42s}
+@keyframes cflip{to{transform:rotateY(360deg) translateY(-6px)}}
+.lx{background:#FFF6E2;color:#3A1A10;border:2px solid #B8322A;border-radius:14px;padding:14px 16px;box-shadow:inset 0 0 0 4px #FFF6E2,inset 0 0 0 5px #E9B85A}
+.lx-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;border-bottom:1px dashed #C9A85A;padding-bottom:8px;margin-bottom:10px;font-weight:600;font-size:14px}
+.lx-h b{font-family:var(--f-display);font-size:18px;color:#8E1C17}
+.lx.lv0 .lx-h b{color:#B8322A}.lx.lv1 .lx-h b{color:#8A5A2B}.lx.lv2 .lx-h b{color:#4A5A6A}
+.lx .stars{color:#D98A1A;letter-spacing:2px}
+.lx-poem{font-family:var(--f-serif);font-size:15.5px;line-height:1.8;text-wrap:balance;text-align:center;margin:4px 0 12px;color:#5A1A10}
+.lx dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;font-size:15px}
+.lx dt{font-weight:700;color:#8E1C17}.lx dd{margin:0}
+.lx-say{font-family:var(--f-serif);font-size:16px;margin:12px 0 0;color:#5A1A10}
+.lx-note{font-size:12.5px;color:#7A5A40;margin:12px 0 0;font-style:italic}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head><body>
+
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand"><i class="dot"></i><span>Xóm Mình</span></div>
+    <button class="who" id="who-btn" data-act="pick-me" aria-label="Đổi người đang xem"></button>
+  </header>
+  <main id="view" class="view"></main>
+</div>
+<nav class="tabs" id="nav" aria-label="Điều hướng"><div class="in" id="tabs"></div></nav>
+<div id="layer"></div>
+
+<script>
+(function(){
+/* ---------- Lịch âm (thuật toán Hồ Ngọc Đức, múi giờ +7) ---------- */
+const INT=Math.floor;
+function jdFromDate(dd,mm,yy){const a=INT((14-mm)/12),y=yy+4800-a,m=mm+12*a-3;let jd=dd+INT((153*m+2)/5)+365*y+INT(y/4)-INT(y/100)+INT(y/400)-32045;if(jd<2299161)jd=dd+INT((153*m+2)/5)+365*y+INT(y/4)-32083;return jd}
+function newMoon(k,tz){const T=k/1236.85,T2=T*T,T3=T2*T,dr=Math.PI/180;let Jd1=2415020.75933+29.53058868*k+0.0001178*T2-0.000000155*T3;Jd1+=0.00033*Math.sin((166.56+132.87*T-0.009173*T2)*dr);const M=359.2242+29.10535608*k-0.0000333*T2-0.00000347*T3,Mpr=306.0253+385.81691806*k+0.0107306*T2+0.00001236*T3,F=21.2964+390.67050646*k-0.0016528*T2-0.00000239*T3;let C1=(0.1734-0.000393*T)*Math.sin(M*dr)+0.0021*Math.sin(2*dr*M);C1=C1-0.4068*Math.sin(Mpr*dr)+0.0161*Math.sin(dr*2*Mpr);C1=C1-0.0004*Math.sin(dr*3*Mpr);C1=C1+0.0104*Math.sin(dr*2*F)-0.0051*Math.sin(dr*(M+Mpr));C1=C1-0.0074*Math.sin(dr*(M-Mpr))+0.0004*Math.sin(dr*(2*F+M));C1=C1-0.0004*Math.sin(dr*(2*F-M))-0.0006*Math.sin(dr*(2*F+Mpr));C1=C1+0.0010*Math.sin(dr*(2*F-Mpr))+0.0005*Math.sin(dr*(2*Mpr+M));const dt=T<-11?0.001+0.000839*T+0.0002261*T2-0.00000845*T3-0.000000081*T*T3:-0.000278+0.000265*T+0.000262*T2;return INT(Jd1+C1-dt+0.5+tz/24)}
+function sunLong(jdn,tz){const T=(jdn-2451545.5-tz/24)/36525,T2=T*T,dr=Math.PI/180;const M=357.52910+35999.05030*T-0.0001559*T2-0.00000048*T*T2,L0=280.46645+36000.76983*T+0.0003032*T2;let DL=(1.914600-0.004817*T-0.000014*T2)*Math.sin(dr*M);DL+=(0.019993-0.000101*T)*Math.sin(dr*2*M)+0.000290*Math.sin(dr*3*M);let L=(L0+DL)*dr;L-=Math.PI*2*INT(L/(Math.PI*2));return INT(L/Math.PI*6)}
+function month11(yy,tz){const off=jdFromDate(31,12,yy)-2415021,k=INT(off/29.530588853);let nm=newMoon(k,tz);if(sunLong(nm,tz)>=9)nm=newMoon(k-1,tz);return nm}
+function leapOff(a11,tz){const k=INT((a11-2415021.076998695)/29.530588853+0.5);let last,i=1,arc=sunLong(newMoon(k+i,tz),tz);do{last=arc;i++;arc=sunLong(newMoon(k+i,tz),tz)}while(arc!=last&&i<14);return i-1}
+function toLunar(d){const dd=d.getDate(),mm=d.getMonth()+1,yy=d.getFullYear(),tz=7;const dn=jdFromDate(dd,mm,yy),k=INT((dn-2415021.076998695)/29.530588853);let ms=newMoon(k+1,tz);if(ms>dn)ms=newMoon(k,tz);let a11=month11(yy,tz),b11=a11,ly;if(a11>=ms){ly=yy;a11=month11(yy-1,tz)}else{ly=yy+1;b11=month11(yy+1,tz)}const ld=dn-ms+1,diff=INT((ms-a11)/29);let leap=0,lm=diff+11;if(b11-a11>365){const lo=leapOff(a11,tz);if(diff>=lo){lm=diff+10;if(diff==lo)leap=1}}if(lm>12)lm-=12;if(lm>=11&&diff<4)ly-=1;return {d:ld,m:lm,y:ly,leap}}
+function findLunar(from,test,limit){const d=new Date(from);d.setHours(12,0,0,0);for(let i=0;i<(limit||420);i++){const l=toLunar(d);if(test(l))return {date:new Date(d),l,days:i};d.setDate(d.getDate()+1)}return null}
+
+/* ---------- Tiện ích ---------- */
+const KEY='xom-minh-demo-v2',DAY=864e5,now=new Date();
+const pad=n=>String(n).padStart(2,'0');
+const at=(off,h,m)=>{const d=new Date(now);d.setDate(d.getDate()+off);d.setHours(h,m||0,0,0);return d.getTime()};
+const relDate=(off,yrs)=>{const d=new Date(now);d.setDate(d.getDate()+off);return (d.getFullYear()-yrs)+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+const dayKey=t=>{const d=new Date(t);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+const today=dayKey(Date.now());
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const code=()=>Math.random().toString(36).slice(2,8).toUpperCase();
+const DOW=['Chủ nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
+const hm=t=>{const d=new Date(t);return d.getHours()+':'+pad(d.getMinutes())};
+const dm=t=>{const d=new Date(t);return d.getDate()+'/'+(d.getMonth()+1)};
+const dayDiff=t=>{const a=new Date(now);a.setHours(0,0,0,0);const b=new Date(t);b.setHours(0,0,0,0);return Math.round((b-a)/DAY)};
+function when(t){const d=dayDiff(t),h=new Date(t).getHours();
+  if(d===0)return (h>=17?'Tối nay':h>=11?'Trưa nay':'Sáng nay')+', '+hm(t);
+  if(d===1)return 'Mai, '+hm(t);
+  return DOW[new Date(t).getDay()]+' '+dm(t)+', '+hm(t)}
+function ago(t){const d=dayDiff(t);return d===0?hm(t):d===-1?'Hôm qua '+hm(t):dm(t)+' '+hm(t)}
+const lunarName=l=>(l.d===1?'Mùng 1':l.d===15?'Rằm':l.d<=10?'Mùng '+l.d:'Ngày '+l.d)+' tháng '+l.m+(l.leap?' nhuận':'');
+
+/* ---------- Dữ liệu ---------- */
+const STATUS=[
+  {k:'cafe',e:'☕',t:'Rảnh, thèm cafe',s:'Thèm cafe'},
+  {k:'bia',e:'🍺',t:'Thèm bia',s:'Thèm bia'},
+  {k:'an',e:'🍜',t:'Tìm bạn ăn trưa',s:'Đói'},
+  {k:'con',e:'🧒',t:'Đang trông con',s:'Trông con'},
+  {k:'met',e:'😴',t:'Mệt, ở nhà',s:'Ở nhà'},
+  {k:'ban',e:'🏃',t:'Bận tối mắt',s:'Bận'},
+];
+const st=k=>STATUS.find(s=>s.k===k);
+const FREE=['cafe','bia','an'];
+const TYPES=[
+  {k:'cafe',e:'☕',t:'Cafe'},{k:'bia',e:'🍺',t:'Bia'},{k:'an',e:'🍜',t:'Ăn trưa'},
+  {k:'bong',e:'⚽',t:'Đá bóng'},{k:'hat',e:'🎤',t:'Karaoke'},{k:'con',e:'🎡',t:'Đi chơi cùng con'},
+];
+const ty=k=>TYPES.find(t=>t.k===k)||TYPES[0];
+const OFFER=[{k:'hoa',t:'Hoa tươi'},{k:'qua',t:'Mâm ngũ quả'},{k:'nuoc',t:'Chén trà'},{k:'vang',t:'Thỏi vàng'}];
+
+function mk(id,h,ab,A,B,kids,wed,pendingB){const n=id.slice(1);
+  return {id,h,ab,wed:relDate(wed[0],wed[1]),invite:code(),
+    members:[{id:'a'+n,n:A[0],role:'adult',dob:relDate(A[1],A[2]),claimed:true,phone:'',phonePub:false},
+             {id:'b'+n,n:B[0],role:'adult',dob:relDate(B[1],B[2]),claimed:!pendingB,phone:'',phonePub:false},
+             ...kids.map((k,i)=>({id:'k'+n+i,n:k[0],role:'kid',dob:relDate(k[1],k[2])}))]}}
+
+function seed(){
+  const fams=[
+    mk('f0',160,'Bin',['Bố Bin',200,38],['Mẹ Bin',75,35],[['Bin',160,7],['Na',48,4]],[120,9]),
+    mk('f1',20,'HL',['Hùng',90,37],['Lan',130,35],[['Su',6,7]],[250,8]),
+    mk('f2',200,'MT',['Minh',70,36],['Thảo',300,33],[['Bống',180,5],['Tít',95,2]],[9,10]),
+    mk('f3',280,'QH',['Quang',55,39],['Hà',210,37],[['Cún',140,8]],[330,11]),
+    mk('f4',330,'DM',['Dũng',170,34],['Mai',260,31],[['Mít',80,3]],[100,5]),
+    mk('f5',45,'ST',['Sơn',115,33],['Trang',190,30],[],[62,2]),
+    mk('f6',100,'LV',['Long',230,36],['Vy',150,34],[['Ken',280,6],['Kem',280,6]],[200,8]),
+    mk('f7',240,'HN',['Hải',310,38],['Ngọc',14,34],[['Sóc',65,9]],[170,11]),
+    mk('f8',300,'PL',['Phong',85,32],['Linh',220,30],[['Gạo',21,1]],[140,3]),
+    mk('f9',70,'TH',['Toàn',125,37],['Hương',240,35],[['Bi',110,7]],[290,9],true),
+  ];
+  const streak={};fams.forEach(f=>f.members.forEach(m=>{if(m.role==='adult')streak[m.id]=([...m.n].reduce((s,c)=>s+c.charCodeAt(0),0)*7)%29+1}));
+  return {
+    v:3, look:{}, me:'a0', tab:'home', sub:'keo', detail:null, claim:null, fams, streak,
+    admins:['a0','b0'],
+    checkins:{a1:{s:'bia',t:at(0,8,12)},b1:{s:'con',t:at(0,7,50)},b2:{s:'cafe',t:at(0,7,40)},a2:{s:'ban',t:at(0,8,30)},a3:{s:'met',t:at(0,9,5)},
+      a5:{s:'bia',t:at(0,10,20)},b5:{s:'bia',t:at(0,10,22)},a6:{s:'con',t:at(0,7,15)},b7:{s:'cafe',t:at(0,11,2)},a7:{s:'cafe',t:at(0,9,40)}},
+    busy:{f4:2,f8:1},
+    keo:[
+      {id:'k1',type:'bia',title:'Bia hơi xả stress',when:at(0,19,30),place:'Bia Hải Xồm, ngõ 10 Láng Hạ',min:5,host:'a1',rsvp:{a1:'yes',a3:'yes',a5:'yes',b5:'maybe',a6:'yes'}},
+      {id:'k2',type:'cafe',title:'Cafe sáng, tán chuyện',when:at(1,8,0),place:'Cộng Cà Phê, Hồ Tây',min:4,host:'b2',rsvp:{b2:'yes',b4:'yes',b7:'yes',a7:'yes',b8:'maybe'}},
+      {id:'k3',type:'con',title:'Thả diều cùng các bé',when:at(2,15,30),place:'Công viên Yên Sở',min:4,host:'b0',rsvp:{a0:'yes',b0:'yes',b6:'yes',a9:'maybe'}},
+      {id:'k4',type:'an',title:'Bún chả trưa giữa tuần',when:at(4,11,45),place:'Bún chả Hương Liên',min:3,host:'a3',rsvp:{a3:'yes'}},
+    ],
+    hosts:[
+      {id:'h1',title:'Lẩu nấm tại gia',when:at(15,18,0),fid:'f2',note:'Nhà có sân thượng, các bé chạy nhảy thoải mái. Mỗi nhà mang một món tráng miệng nhé!',rsvp:{a2:'yes',b2:'yes',a1:'yes',b1:'yes',a5:'yes',b5:'yes',a7:'yes',a0:'maybe'}},
+      {id:'h2',title:'Nướng BBQ cuối tháng',when:at(29,17,30),fid:null,note:'',rsvp:{}},
+      {id:'h3',title:'Tất niên của Xóm',when:at(50,18,0),fid:null,note:'',rsvp:{}},
+    ],
+    gold:{f2:3,f1:2,f5:2,f0:1,f7:1},
+    poll:{q:'Tết Dương lịch cả xóm đi đâu?',opts:['Cắm trại Ba Vì','Biển Sầm Sơn','Nướng BBQ ở nhà ai đó','Du thuyền Hạ Long'],votes:{a1:0,b1:0,a2:0,b2:3,a3:3,a5:1,b5:1,a6:0,b7:2,a9:0}},
+    altar:{[today]:[
+      {pid:'b1',t:at(0,6,30),off:['hoa','qua'],wish:'Cầu cho cả xóm mạnh khoẻ, các bé ngoan, học giỏi.',priv:false},
+      {pid:'b2',t:at(0,7,5),off:['qua','nuoc'],wish:'',priv:false},
+      {pid:'a5',t:at(0,8,0),off:['vang'],wish:'Mong cuối năm chốt được hợp đồng lớn 🙏',priv:false},
+      {pid:'b7',t:at(0,9,10),off:['hoa'],wish:'Cầu bình an cho bố mẹ hai bên.',priv:true},
+    ]},
+    pin:{pid:'b2',x:'Quỹ du lịch Tết: mỗi nhà góp 500k/tháng, chuyển khoản cho Thảo trước ngày 10 nhé!'},
+    chat:{
+      general:[
+        {pid:'a2',t:at(-1,21,10),x:'Nhắc cả nhà: tháng này lẩu nấm ở nhà mình nhé, các bé cứ mang xe đạp lên sân thượng.'},
+        {sys:1,t:at(0,8,15),x:'Hùng vừa rủ kèo 🍺 Bia hơi xả stress'},
+        {pid:'b1',t:at(0,8,20),x:'Tối nay ai đi bia thì nhớ đưa anh Hùng về tận nhà nhé 😂'},
+        {pid:'b5',t:at(0,10,25),x:'Em với anh Sơn đi luôn!'},
+        {pid:'b0',t:at(0,11,5),x:'Chiều Chủ nhật nhà mình đưa Bin với Na đi thả diều, bé nhà ai muốn đi cùng không?'},
+      ],
+      k1:[{pid:'a1',t:at(0,8,16),x:'Ngồi bàn ngoài trời nhé, 7h30 có mặt.'},{pid:'a3',t:at(0,9,0),x:'Quang đến muộn tầm 15 phút.'},{pid:'a6',t:at(0,9,30),x:'Anh đặt bàn chưa? Cuối tuần quán đông lắm.'}],
+      k2:[{pid:'b2',t:at(0,7,45),x:'Ai đến trước giữ bàn nhìn ra hồ nhé!'}],
+    },
+  };
+}
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(S&&S.v===2){S.v=3;S.look={}}
+if(!S||S.v!==3)S=seed();
+let UI={checkOpen:false,confirmCancel:false,scrollChat:false,enter:false,anim:null};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));return true}catch(e){return false}};
+
+/* ---------- Truy vấn ---------- */
+const famById=id=>S.fams.find(f=>f.id===id);
+const person=pid=>{for(const f of S.fams){const m=f.members.find(x=>x.id===pid);if(m)return Object.assign({fam:f},m)}return null};
+const adults=f=>f.members.filter(m=>m.role==='adult');
+const kids=f=>f.members.filter(m=>m.role==='kid');
+const people=()=>S.fams.flatMap(f=>adults(f).filter(m=>m.claimed));
+const me=()=>person(S.me);
+const myFam=()=>me().fam;
+const famShort=f=>adults(f).map(m=>m.n).join(' & ');
+const famName=f=>f.id===myFam().id?'Nhà mình':'Nhà '+famShort(f);
+const famAv=(f,sm)=>`<span class="fav" title="${esc(famName(f))}">${adults(f).slice(0,2).map(m=>`<span class="av${sm?' sm':''}" style="--h:${f.h}">${headSVG(m.id)}</span>`).join('')}</span>`;
+const pAv=(pid,sm)=>{const p=person(pid);if(!p)return '';return `<span class="av${sm?' sm':''}" style="--h:${p.fam.h}" title="${esc(p.n)}">${headSVG(pid)}</span>`};
+const yesOf=r=>Object.keys(r).filter(k=>r[k]==='yes'&&person(k));
+const maybeOf=r=>Object.keys(r).filter(k=>r[k]==='maybe'&&person(k));
+const isAdmin=()=>S.admins.includes(S.me);
+function nextOcc(dob){if(!dob)return null;const [y,m,d]=dob.split('-').map(Number);const t0=new Date(now);t0.setHours(0,0,0,0);
+  let c=new Date(now.getFullYear(),m-1,d);if(c<t0)c=new Date(now.getFullYear()+1,m-1,d);return {t:c.getTime(),years:c.getFullYear()-y}}
+function events(win){const out=[];
+  S.fams.forEach(f=>{f.members.forEach(m=>{const o=nextOcc(m.dob);if(!o)return;
+      let t;if(m.role==='kid')t=o.years===1?'Thôi nôi bé '+m.n:'Sinh nhật bé '+m.n+' · tròn '+o.years+' tuổi';else t='Sinh nhật '+m.n;
+      out.push({t:o.t,label:t,kind:m.role==='kid'&&o.years===1?'Thôi nôi':'Sinh nhật',f})});
+    const w=nextOcc(f.wed);if(w&&w.years>0)out.push({t:w.t,label:'Kỷ niệm '+w.years+' năm cưới',kind:'Ngày cưới',f})});
+  return out.filter(e=>dayDiff(e.t)<=(win||45)).sort((a,b)=>a.t-b.t)}
+const altarToday=()=>S.altar[today]||[];
+const litFams=()=>[...new Set(altarToday().map(e=>person(e.pid)&&person(e.pid).fam.id).filter(Boolean))];
+function post(ch,msg){(S.chat[ch]=S.chat[ch]||[]).push(Object.assign({t:Date.now()},msg))}
+
+function toast(msg){document.querySelectorAll('.toast').forEach(t=>t.remove());const el=document.createElement('div');el.className='toast';el.setAttribute('role','status');el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2600)}
+
+const ICONS={
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg>',
+  keo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h11v8a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 7h2a3 3 0 0 1 0 6h-2"/><path d="M6 21h10"/></svg>',
+  altar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h16l-2 6H6z"/><path d="M9 14V5"/><path d="M12 14V3"/><path d="M15 14V5"/></svg>',
+  chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8"/></svg>',
+  xom:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2.5 19a5.5 5.5 0 0 1 11 0"/><path d="M10.5 19a5.5 5.5 0 0 1 11 0"/></svg>',
+};
+const TABS=[['home','Hôm nay'],['keo','Kèo'],['chat','Chat'],['xom','Xóm']];
+
+/* ---------- Khung ---------- */
+function renderChrome(){
+  const claiming=!!S.claim;
+  document.getElementById('nav').hidden=claiming;
+  document.getElementById('app').classList.toggle('claiming',claiming);
+  const wb=document.getElementById('who-btn');wb.hidden=claiming;
+  if(!claiming){const m=me();wb.innerHTML=pAv(m.id,true)+'<span>'+esc(m.n)+'</span>'}
+  const openHosts=S.hosts.filter(h=>!h.fid).length;
+  document.getElementById('tabs').innerHTML=TABS.map(([k,l])=>
+    `<button data-act="tab" data-k="${k}" ${S.tab===k?'aria-current="page"':''}>${ICONS[k]}<span>${l}</span>${k==='keo'&&openHosts?`<span class="pip">${openHosts}</span>`:''}</button>`).join('');
+}
+
+/* ---------- Kèo ---------- */
+function rsvpBtns(act,id,mine,labels){labels=labels||['Đi luôn','Để xem','Không đi'];
+  return `<div class="rsvp" role="group" aria-label="Trả lời">
+    <button data-act="${act}" data-id="${id}" data-v="yes" aria-pressed="${mine==='yes'}">${labels[0]}</button>
+    <button class="maybe" data-act="${act}" data-id="${id}" data-v="maybe" aria-pressed="${mine==='maybe'}">${labels[1]}</button>
+    <button class="no" data-act="${act}" data-id="${id}" data-v="no" aria-pressed="${mine==='no'}">${labels[2]}</button></div>`}
+function keoHead(k){const y=yesOf(k.rsvp),ok=y.length>=k.min,t=ty(k.type);
+  return `<div class="kicon" aria-hidden="true">${t.e}</div>
+    <div style="min-width:0;flex:1"><div class="ktitle">${esc(k.title)}</div>
+      <div class="kmeta"><span class="kwhen">${when(k.when)}</span><span>${esc(k.place)}</span><span>${esc(person(k.host).n)} rủ</span></div></div>
+    <span class="badge ${ok?'lock':'wait'}">${ok?'Chốt kèo!':'Cần thêm '+(k.min-y.length)}</span>`}
+function progress(k){const y=yesOf(k.rsvp);return `<div class="progress"><div class="bar"><i style="width:${Math.min(100,y.length/k.min*100)}%"></i></div><small>${y.length}/${k.min} người đi</small></div>`}
+function keoCard(k){
+  const y=yesOf(k.rsvp),m=maybeOf(k.rsvp),c=(S.chat[k.id]||[]).length;
+  return `<article class="card kcard">
+    <button class="ktop" data-act="open-keo" data-id="${k.id}" aria-label="Xem chi tiết ${esc(k.title)}">${keoHead(k)}</button>
+    ${progress(k)}
+    <div class="kfoot"><div class="going">${y.length?`<span class="stack">${y.slice(0,6).map(id=>pAv(id,true)).join('')}</span>`:''}${m.length?`<span>${m.length} người để xem</span>`:''}</div>
+      <button class="link" data-act="open-keo" data-id="${k.id}">💬 ${c?c+' tin · ':''}Chi tiết</button></div>
+    ${rsvpBtns('rsvp',k.id,k.rsvp[S.me]||'')}
+  </article>`;
+}
+function whoGoing(r){
+  const fams=S.fams.filter(f=>adults(f).some(m=>r[m.id]));
+  const pending=people().filter(p=>!r[p.id]).length;
+  const lbl={yes:['Đi',''],maybe:['Để xem','maybe'],no:['Không','off']};
+  return `<div class="list">${fams.map(f=>`<div class="row">${famAv(f)}<div class="grow"><div class="name">${esc(famName(f))}</div>
+    <div class="people">${adults(f).map(m=>{const v=r[m.id];if(!m.claimed)return '';const L=v?lbl[v]:['Chưa trả lời','none'];return `<span class="pst ${L[1]}">${esc(m.n)}: ${L[0]}</span>`}).join('')}</div></div></div>`).join('')}
+    ${pending?`<div class="row"><span class="meta">${pending} người chưa trả lời</span></div>`:''}</div>`}
+function thread(msgs){
+  if(!msgs||!msgs.length)return '<p class="sub small" style="text-align:center">Chưa có tin nhắn nào. Mở lời trước nhé!</p>';
+  let last='';
+  return `<div class="thread">${msgs.map(m=>{let sep='';const k=dayKey(m.t);if(k!==last){last=k;const d=dayDiff(m.t);sep=`<div class="day-sep">${d===0?'Hôm nay':d===-1?'Hôm qua':dm(m.t)}</div>`}
+    if(m.sys)return sep+`<div class="sys">${esc(m.x)} · ${hm(m.t)}</div>`;
+    const p=person(m.pid);if(!p)return sep;const mine=m.pid===S.me;
+    return sep+`<div class="msg${mine?' me':''}">${mine?'':pAv(m.pid,true)}<div class="bubble">${mine?'':`<span class="by">${esc(p.n)}</span>`}${esc(m.x)}<span class="tm">${hm(m.t)}</span></div></div>`}).join('')}</div>`}
+function composer(ch,ph){return `<form class="composer" id="chat-form" data-ch="${ch}"><label for="chat-in" class="sub" hidden>Tin nhắn</label><input id="chat-in" autocomplete="off" maxlength="300" placeholder="${ph}"><button type="submit">Gửi</button></form>`}
+
+function viewDetail(){
+  const k=S.keo.find(x=>x.id===S.detail);if(!k){S.detail=null;return viewKeo()}
+  const isHost=k.host===S.me;
+  const maps='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(k.place);
+  return `<button class="back" data-act="back">‹ Tất cả kèo</button>
+  <article class="card kcard"><div class="ktop">${keoHead(k)}</div>
+    <a href="${maps}" target="_blank" rel="noopener" class="small" style="font-weight:600">Mở bản đồ: ${esc(k.place)}</a>
+    <button class="link" style="align-self:flex-start" data-act="thay-from-keo" data-id="${k.id}">🔮 Nhờ thầy xem ngày giờ</button>
+    ${progress(k)}${rsvpBtns('rsvp',k.id,k.rsvp[S.me]||'')}
+    ${isHost?(UI.confirmCancel?`<div class="note">Huỷ kèo sẽ báo cho mọi người trong kênh chung. Chắc chưa?</div><div class="two"><button class="btn ghost" data-act="cancel-no">Giữ kèo</button><button class="btn danger" data-act="cancel-yes" data-id="${k.id}">Huỷ kèo</button></div>`
+      :`<button class="link" style="align-self:flex-start;color:var(--danger)" data-act="cancel-ask">Huỷ kèo này</button>`):''}
+  </article>
+  <section class="section"><h2>Ai đi?</h2>${whoGoing(k.rsvp)}</section>
+  <section class="section"><h2>Bàn kèo</h2>${thread(S.chat[k.id])}</section>
+  ${composer(k.id,'Đổi giờ, đổi quán, ai đón ai…')}`;
+}
+
+function viewKeo(){
+  const openHosts=S.hosts.filter(h=>!h.fid).length;
+  const seg=`<div class="seg" role="group" aria-label="Chọn mục"><button data-act="seg" data-k="keo" aria-pressed="${S.sub==='keo'}">Kèo</button><button data-act="seg" data-k="host" aria-pressed="${S.sub==='host'}">Đăng cai${openHosts?`<span class="pipin">${openHosts}</span>`:''}</button></div>`;
+  if(S.sub==='host')return `<div><h1>Kèo của xóm</h1></div>${seg}${viewHost()}`;
+  const list=[...S.keo].sort((a,b)=>a.when-b.when);
+  const locked=list.filter(k=>yesOf(k.rsvp).length>=k.min).length;
+  return `<div><h1>Kèo của xóm</h1><p class="sub">${list.length} kèo đang mở · ${locked} kèo đã chốt</p></div>${seg}
+  <section class="section"><button class="btn sun block" data-act="new-keo">+ Rủ một kèo mới</button>${list.map(keoCard).join('')}</section>
+  <p class="sub small" style="margin-top:18px">Kèo tự chuyển sang "Chốt kèo!" khi đủ số người tối thiểu. Bấm vào kèo để xem ai đi và bàn thêm.</p>`;
+}
+function viewHost(){
+  const list=[...S.hosts].sort((a,b)=>a.when-b.when);
+  const gold=Object.entries(S.gold).filter(([id])=>famById(id)).sort((a,b)=>b[1]-a[1]);
+  return `<p class="sub" style="margin-top:14px">Nhà nào tiện thì xung phong làm chủ nhà, cả xóm kéo đến. Không ép, không xếp lịch.</p>
+  <section class="section">
+  ${list.map(h=>{
+    if(!h.fid)return `<article class="card kcard host-open">
+      <div class="ktop"><div class="kicon" aria-hidden="true">🏠</div><div style="flex:1;min-width:0"><div class="ktitle">${esc(h.title)}</div>
+      <div class="kmeta"><span class="kwhen">${when(h.when)}</span><span>Chưa có nhà nhận đăng cai</span></div></div></div>
+      <button class="btn sun block" data-act="volunteer" data-id="${h.id}">Nhà mình xung phong!</button></article>`;
+    const f=famById(h.fid);if(!f)return '';
+    const y=yesOf(h.rsvp),mine=h.rsvp[S.me]||'',isMine=h.fid===myFam().id;
+    return `<article class="card kcard">
+      <div class="ktop"><div class="kicon" aria-hidden="true">🏡</div><div style="flex:1;min-width:0"><div class="ktitle">${esc(h.title)}</div>
+      <div class="kmeta"><span class="kwhen">${when(h.when)}</span></div></div><span class="badge lock">${y.length} người đến</span></div>
+      <div class="hostline">${famAv(f)}<span><b>${esc(famName(f))}</b> làm chủ nhà</span></div>
+      ${h.note?`<p class="note">${esc(h.note)}</p>`:''}
+      <div class="going"><span class="stack">${y.slice(0,8).map(id=>pAv(id,true)).join('')}</span>${y.length>8?`<span>+${y.length-8}</span>`:''}</div>
+      ${isMine?`<button class="btn ghost block" data-act="unhost" data-id="${h.id}">Nhường lại cho nhà khác</button>`:rsvpBtns('hrsvp',h.id,mine,['Đến','Để xem','Bận'])}
+    </article>`;}).join('')}
+  <button class="btn ghost block" data-act="new-host">+ Đề xuất buổi mới và nhận đăng cai</button>
+  </section>
+  <section class="section gold"><div class="section-head"><h2>Bảng vàng chủ nhà</h2><span class="sub small">năm ${now.getFullYear()}</span></div>
+    <div class="list">${gold.map(([id,n],i)=>`<div class="row"><span class="rank">${i+1}</span>${famAv(famById(id))}<div class="grow name">${esc(famName(famById(id)))}</div><span class="pst">${n} lần</span></div>`).join('')}</div>
+  </section>`;
+}
+
+/* ---------- Hôm nay ---------- */
+function viewHome(){
+  const m=me(),mine=S.checkins[S.me],d=new Date(now),L=toLunar(now);
+  const next=findLunar(now,l=>l.d===1||l.d===15);
+  const ppl=people(),checked=ppl.filter(p=>S.checkins[p.id]);
+  const missing=ppl.filter(p=>!S.checkins[p.id]);
+  const famsChecked=S.fams.filter(f=>adults(f).some(a=>S.checkins[a.id]));
+  const freeFams=famsChecked.filter(f=>adults(f).some(a=>S.checkins[a.id]&&FREE.includes(S.checkins[a.id].s)));
+  const busyFams=famsChecked.filter(f=>!freeFams.includes(f));
+  const famRow=(f,off)=>`<div class="row">${famAv(f)}<div class="grow"><div class="name">${esc(famName(f))}</div>
+    <div class="people">${adults(f).filter(a=>S.checkins[a.id]).map(a=>{const s=st(S.checkins[a.id].s);return `<span class="pst${FREE.includes(s.k)?'':' off'}">${esc(a.n)}: ${s.e} ${s.s}</span>`}).join('')}</div></div></div>`;
+  const upcoming=[...S.keo].filter(k=>k.when>Date.now()-3*3600e3).sort((a,b)=>a.when-b.when).slice(0,2);
+  const ev=events(45)[0];
+  const lit=litFams().length,iLit=altarToday().some(e=>e.pid===S.me);
+  const lunarLine=next.days===0?`Hôm nay là ${next.l.d===1?'mùng 1':'ngày rằm'}`:`còn ${next.days} ngày đến ${next.l.d===1?'mùng 1':'rằm'}`;
+  return `
+  <div><span class="demo-tag">Bản demo · dữ liệu mẫu</span>
+  <h1>${DOW[d.getDay()]}, ${d.getDate()} tháng ${d.getMonth()+1}</h1>
+  <p class="sub">${lunarName(L)} âm lịch · ${lunarLine}</p></div>
+
+  ${mine&&!UI.checkOpen?`<div class="card done-strip"><span class="em" aria-hidden="true">${st(mine.s).e}</span><div class="grow"><b>Đã điểm danh: ${st(mine.s).t}</b><div class="meta">lúc ${hm(mine.t)} · <span class="streak">${S.streak[S.me]||1} ngày liên tục</span></div></div><button class="link" data-act="check-open">Đổi</button></div>`
+  :`<section class="card checkin" aria-label="Điểm danh">
+    <h2>${mine?'Đổi trạng thái':'Hôm nay '+esc(m.n)+' thế nào?'}</h2><p>${mine?'Chọn trạng thái mới, cả xóm sẽ thấy ngay.':'Điểm danh để cả xóm biết ai đang rảnh. Chuỗi hiện tại: '+(S.streak[S.me]||0)+' ngày.'}</p>
+    <div class="chips">${STATUS.map(s=>`<button class="chip" data-act="checkin" data-k="${s.k}" aria-pressed="${!!(mine&&mine.s===s.k)}">${s.e} ${s.t}</button>`).join('')}</div>
+  </section>`}
+
+  ${gateCard()}
+
+  <section class="section">
+    <div class="section-head"><h2>Đang rảnh, rủ được</h2><span class="sub small">${checked.length}/${ppl.length} đã điểm danh</span></div>
+    <div class="list">
+      ${freeFams.map(f=>famRow(f)).join('')||'<div class="row"><span class="sub">Chưa ai báo rảnh. Điểm danh trước làm gương nhé!</span></div>'}
+      ${busyFams.map(f=>famRow(f,1)).join('')}
+      ${missing.length?`<div class="row"><span class="stack">${missing.slice(0,5).map(p=>pAv(p.id,true)).join('')}</span><div class="grow meta">${missing.length} người chưa điểm danh</div><button class="link" data-act="poke">Ới một tiếng</button></div>`:''}
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><h2>Kèo sắp tới</h2><button class="link" data-act="new-keo">+ Rủ kèo</button></div>
+    ${upcoming.map(keoCard).join('')}
+    <button class="btn ghost block" data-act="tab" data-k="keo">Xem tất cả kèo</button>
+  </section>
+
+  ${ev?`<section class="section"><div class="section-head"><h2>Đừng quên</h2></div>
+    <div class="list">${evRow(ev)}</div></section>`:''}`;
+}
+function evRow(e){const d=new Date(e.t),n=dayDiff(e.t);
+  return `<div class="row"><div class="date"><b>${d.getDate()}</b><small>th ${d.getMonth()+1}</small></div>
+    <div class="grow"><div class="name">${esc(e.label)}</div><div class="meta">${esc(famName(e.f))} · ${n===0?'hôm nay':'còn '+n+' ngày'}</div></div>
+    <button class="link" data-act="wish" data-t="${esc(e.label)}" data-f="${e.f.id}">Chúc</button></div>`}
+
+/* ---------- Ban thờ ---------- */
+/* ---------- Chibi ---------- */
+let UID=0;
+const SKIN=['#FBDCC4','#F1C19C','#DDA27A','#B9805A'];
+const HAIRC=['#2A1D17','#4B3022','#7B4B2A','#B07A3F','#22243A'];
+const SHIRT=['#E8962A','#0E7C66','#3B6FD1','#D2475A','#8E5CC9','#F2C230','#5E9B3C','#3A8FA6'];
+const HAIR_NAMES={short:'Ngắn',side:'Mái lệch',buzz:'Húi cua',spiky:'Dựng',long:'Dài',bun:'Búi',pony:'Đuôi ngựa',bob:'Bob',pigtails:'Hai bím'};
+const ALL_HAIR=Object.keys(HAIR_NAMES);
+const HAIRS={a:['short','side','buzz','spiky'],b:['long','bun','pony','bob'],k:['short','pigtails','bob','spiky','bun']};
+function hash(s){let h=2166136261;for(const c of String(s)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)>>>0}h^=h>>>13;h=Math.imul(h,0x5bd1e995)>>>0;return (h^(h>>>15))>>>0}
+function defLook(pid){const H=k=>hash(pid+'|'+k+'|'+pid),g=pid[0]==='a'?'a':pid[0]==='b'?'b':'k',hs=HAIRS[g];
+  return {mode:'build',hair:hs[H('h')%hs.length],hairC:HAIRC[H('c')%(H('x')%7<5?3:5)],skin:SKIN[H('s')%3],glasses:g!=='k'&&H('g')%4===0,
+    shirt:SHIRT[H('t')%SHIRT.length],acc:g==='b'&&H('a')%3===0?'bow':g==='k'&&H('a')%3===0?'cap':'none',photo:'',zoom:1.25,ox:0,oy:0}}
+const look=pid=>Object.assign(defLook(pid),(S.look||{})[pid]||{});
+const setLook=(pid,patch)=>{S.look=S.look||{};S.look[pid]=Object.assign({},S.look[pid]||{},patch)};
+const HAIR_BACK={long:'M7 30 Q6 4 30 4 Q54 4 53 30 L55 56 Q42 60 30 58 Q18 60 5 56Z',bob:'M7 30 Q6 4 30 4 Q54 4 53 30 L53 44 Q46 48 42 42 L18 42 Q14 48 7 44Z',pony:'M50 20 Q66 30 57 54 Q53 41 46 31Z'};
+const CAP7='M8 28 Q9 7 30 7 Q51 7 52 28 Q44 16 30 17 Q16 16 8 28Z',BANG='M8 30 Q8 6 30 6 Q52 6 52 30 Q50 22 44 21 L16 21 Q10 22 8 30Z';
+const HAIR_FRONT={short:'M8 30 Q7 6 30 6 Q53 6 52 30 Q50 20 42 18 Q30 22 18 18 Q10 20 8 30Z',side:'M8 31 Q6 5 30 5 Q54 5 52 30 Q48 17 37 15 Q26 24 9 31Z',
+  buzz:'M9 26 Q10 7 30 7 Q50 7 51 26 Q42 14 30 14 Q18 14 9 26Z',spiky:'M8 28 L10 14 L15 18 L18 6 L24 13 L30 3 L36 13 L42 6 L45 18 L50 14 L52 28 Q44 18 30 19 Q16 18 8 28Z',
+  long:'M8 30 Q9 6 30 6 Q51 6 52 30 Q46 16 34 16 Q30 22 26 16 Q14 16 8 30Z',bun:CAP7,pony:CAP7,bob:BANG,pigtails:BANG};
+function headInner(L,uid){
+  if(L.mode==='photo'&&L.photo){const sz=44*L.zoom;
+    return `<defs><clipPath id="hc${uid}"><circle cx="30" cy="30" r="22"/></clipPath></defs><circle cx="30" cy="30" r="22" fill="${L.skin}"/>
+      <image href="${L.photo}" x="${30-sz/2-L.ox}" y="${30-sz/2-L.oy}" width="${sz}" height="${sz}" preserveAspectRatio="xMidYMid slice" clip-path="url(#hc${uid})"/>
+      <circle cx="30" cy="30" r="22" fill="none" stroke="rgba(0,0,0,.2)" stroke-width="1.2"/>`}
+  let s='';
+  if(HAIR_BACK[L.hair])s+=`<path d="${HAIR_BACK[L.hair]}" fill="${L.hairC}"/>`;
+  if(L.hair==='bun')s+=`<circle cx="30" cy="7" r="8" fill="${L.hairC}"/>`;
+  if(L.hair==='pigtails')s+=`<circle cx="8" cy="37" r="7" fill="${L.hairC}"/><circle cx="52" cy="37" r="7" fill="${L.hairC}"/>`;
+  s+=`<circle cx="30" cy="30" r="22" fill="${L.skin}"/>
+    <ellipse cx="22" cy="33" rx="2.6" ry="3.3" fill="#2B2220"/><ellipse cx="38" cy="33" rx="2.6" ry="3.3" fill="#2B2220"/>
+    <circle cx="23" cy="31.8" r=".9" fill="#fff"/><circle cx="39" cy="31.8" r=".9" fill="#fff"/>
+    <circle cx="16.5" cy="39.5" r="3.2" fill="#F08A8A" opacity=".45"/><circle cx="43.5" cy="39.5" r="3.2" fill="#F08A8A" opacity=".45"/>
+    <path d="M27 40.5 Q30 43.5 33 40.5" fill="none" stroke="#8A3B2E" stroke-width="1.4" stroke-linecap="round"/>`;
+  s+=`<path d="${HAIR_FRONT[L.hair]||BANG}" fill="${L.hairC}"/>`;
+  if(L.glasses)s+=`<g fill="none" stroke="#2B2B2B" stroke-width="1.5"><circle cx="22" cy="33" r="5.6"/><circle cx="38" cy="33" r="5.6"/><path d="M27.6 33h4.8"/></g>`;
+  if(L.acc==='bow')s+=`<path d="M41 11 l8 -5 v10z M41 11 l-8 -5 v10z" fill="#E85A8A"/><circle cx="41" cy="11" r="2.4" fill="#C23F6D"/>`;
+  if(L.acc==='cap')s+=`<path d="M7 23 Q7 3 30 3 Q53 3 53 23Z" fill="${L.shirt}"/><path d="M7 23 Q7 3 30 3 Q53 3 53 23Z" fill="rgba(255,255,255,.12)"/><path d="M30 21 H57 Q60 24 55 26 H30Z" fill="${L.shirt}"/><path d="M30 21 H57 Q60 24 55 26 H30Z" fill="rgba(0,0,0,.22)"/>`;
+  return s}
+const headSVG=(pid,ov)=>`<svg viewBox="5 3 50 50" aria-hidden="true">${headInner(Object.assign(look(pid),ov||{}),UID++)}</svg>`;
+function chibiSVG(pid,ov){const L=Object.assign(look(pid),ov||{}),u=UID++;
+  return `<svg viewBox="0 -4 60 92" aria-hidden="true">
+  <ellipse cx="30" cy="85" rx="14" ry="3" fill="rgba(0,0,0,.2)"/>
+  <g class="leg-l"><rect x="23" y="68" width="6" height="14" rx="2" fill="#3A3F55"/><ellipse cx="25.5" cy="82.5" rx="4.6" ry="2.4" fill="#2B2B2B"/></g>
+  <g class="leg-r"><rect x="31" y="68" width="6" height="14" rx="2" fill="#3A3F55"/><ellipse cx="34.5" cy="82.5" rx="4.6" ry="2.4" fill="#2B2B2B"/></g>
+  <g class="upper">
+    <g class="arm-l"><rect x="13" y="50" width="6.5" height="16" rx="3.2" fill="${L.shirt}"/><circle cx="16.2" cy="66" r="3.2" fill="${L.skin}"/></g>
+    <g class="arm-r"><rect x="40.5" y="50" width="6.5" height="16" rx="3.2" fill="${L.shirt}"/><circle cx="43.8" cy="66" r="3.2" fill="${L.skin}"/></g>
+    <path d="M18 49 Q30 45 42 49 L44 71 Q30 74 16 71Z" fill="${L.shirt}"/>
+    ${headInner(L,u)}
+    <g class="hands"><path d="M29 57 L25.5 36 M30 57 L30 35 M31 57 L34.5 36" stroke="#B5442E" stroke-width="1.2"/>
+      <circle cx="25.5" cy="36" r="1.3" fill="#FF6A3D"/><circle cx="30" cy="35" r="1.3" fill="#FF6A3D"/><circle cx="34.5" cy="36" r="1.3" fill="#FF6A3D"/>
+      <ellipse cx="30" cy="58" rx="4.2" ry="3.6" fill="${L.skin}"/></g>
+  </g></svg>`}
+
+/* ---------- Miếu ---------- */
+function gateSVG(){
+  const lant=(x,d)=>`<g class="lant" style="animation-delay:${d}s"><line x1="${x}" y1="30" x2="${x}" y2="40" stroke="#F6D27A"/><ellipse cx="${x}" cy="47" rx="6.5" ry="8" fill="#E33B2E"/><rect x="${x-3.5}" y="38.5" width="7" height="2" fill="#F6D27A"/><rect x="${x-3.5}" y="53.5" width="7" height="2" fill="#F6D27A"/><line x1="${x}" y1="56" x2="${x}" y2="62" stroke="#F6D27A"/></g>`;
+  let studs='';for(let r=0;r<4;r++)for(const x of [41,52,67,78])studs+=`<circle cx="${x}" cy="${52+r*11}" r="1.5" fill="#E9B85A"/>`;
+  return `<svg viewBox="0 0 120 100" aria-hidden="true">${lant(12,0)}${lant(108,.6)}
+  <path d="M4 34 Q18 31 24 22 L96 22 Q102 31 116 34 Q102 35 94 30 L26 30 Q18 35 4 34Z" fill="#1F6B5A"/>
+  <path d="M22 22 Q32 19 36 11 L84 11 Q88 19 98 22Z" fill="#26806B"/>
+  <rect x="38" y="7" width="44" height="4" rx="2" fill="#F6D27A"/><circle cx="60" cy="5" r="3" fill="#F6D27A"/>
+  <rect x="24" y="30" width="72" height="7" fill="#8E1C17"/>
+  <rect x="27" y="37" width="8" height="57" fill="#C0302A"/><rect x="85" y="37" width="8" height="57" fill="#C0302A"/>
+  <rect x="35" y="44" width="25" height="50" fill="#7A1C12"/><rect x="60" y="44" width="25" height="50" fill="#6A1810"/>
+  <rect x="58.8" y="44" width="2.4" height="50" fill="#FFC861" opacity=".85"/>${studs}
+  <rect x="42" y="31" width="36" height="11" rx="2" fill="#F6D27A"/><text x="60" y="39.3" text-anchor="middle" font-size="6.6" font-weight="700" fill="#7A1C12" font-family="Be Vietnam Pro, sans-serif">MIẾU XÓM</text>
+  <rect x="20" y="94" width="80" height="5" rx="1" fill="#CDB892"/></svg>`}
+function gateCard(){
+  const lit=litFams().length,n=findLunar(now,l=>l.d===1||l.d===15),fest=n.days<=1,iLit=altarToday().some(e=>e.pid===S.me);
+  const when=n.days===0?'Hôm nay là '+(n.l.d===1?'mùng 1':'rằm'):n.days===1?'Mai là '+(n.l.d===1?'mùng 1':'rằm'):'Còn '+n.days+' ngày đến '+(n.l.d===1?'mùng 1':'rằm');
+  return `<button class="gate${fest?' fest':''}" data-act="enter-temple">${gateSVG()}<span class="grow"><b>Miếu Thần Tài của Xóm</b>
+    <span class="g-meta">${lit}/${S.fams.length} nhà đã thắp hương hôm nay · ${when}</span><span class="g-thay">Thầy phán: ${THANG[toLunar(now).m]}</span><span class="go">${iLit?'Vào miếu':'Vào thắp hương'} ›</span></span></button>`}
+function altarGroup(ex){ex=ex||[];
+  const ents=altarToday().filter(e=>!ex.includes(e.pid));
+  const fams=[...new Set(ents.map(e=>person(e.pid)&&person(e.pid).fam.id).filter(Boolean))];
+  const n=Math.min(9,fams.length),offers=new Set(ents.flatMap(e=>e.off||[]));
+  let sticks='';for(let i=0;i<n;i++){const dx=(i-(n-1)/2)*4.5,x2=180+dx*1.5,y2=128+Math.abs(dx)*.4;
+    sticks+=`<line x1="${180+dx*.5}" y1="150" x2="${x2}" y2="${y2}" stroke="#B5442E" stroke-width="1.6"/><circle class="ember" cx="${x2}" cy="${y2}" r="1.8" fill="#FF6A3D" style="animation-delay:${i*.3}s"/>
+      <path class="smoke" d="M${x2} ${y2-3} c-4 -7 4 -12 0 -19 c-3 -5 3 -9 1 -13" style="animation-delay:${(i*.55)%4}s"/>`}
+  return `<rect x="150" y="92" width="60" height="44" rx="4" fill="#8E1C17" stroke="#E9B85A" stroke-width="2.5"/>
+  <text x="180" y="110" text-anchor="middle" fill="#F8DA8A" font-family="Noto Serif, Georgia, serif" font-size="10.5" font-weight="700">Thần Tài</text>
+  <text x="180" y="126" text-anchor="middle" fill="#F8DA8A" font-family="Noto Serif, Georgia, serif" font-size="10.5" font-weight="700">Thổ Địa</text>
+  ${[128,232].map(x=>`<rect x="${x-3}" y="137" width="6" height="23" rx="1.5" fill="#D23A2E"/><ellipse class="flame" cx="${x}" cy="132" rx="3" ry="5.5" fill="#FFB938"/><ellipse class="flame" cx="${x}" cy="133.5" rx="1.4" ry="3" fill="#FFF1C2"/>`).join('')}
+  ${offers.has('qua')?`<ellipse cx="143" cy="160" rx="12" ry="2" fill="#E9B85A"/><circle cx="137" cy="155" r="4.5" fill="#F28C28"/><circle cx="146" cy="154" r="5" fill="#F2C230"/><circle cx="151" cy="157" r="3.6" fill="#7FB241"/><circle cx="141" cy="149" r="4" fill="#E2552B"/>`:''}
+  ${offers.has('nuoc')?`<path d="M155 154h7l-1 6h-5z" fill="#F4EBDD"/>`:''}
+  ${offers.has('vang')?`<path d="M199 160l2-5h9l2 5z" fill="#F6D27A"/><path d="M202 155l1.6-3.4h5.8l1.6 3.4z" fill="#FBE6A6"/>`:''}
+  ${offers.has('hoa')?`<rect x="214" y="147" width="8" height="13" rx="2.5" fill="#2E6B88"/><path d="M218 147 L213 134 M218 147 L218 130 M218 147 L223 135" stroke="#5E9B3C" stroke-width="1.3"/>${[[213,133],[218,129],[223,134]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="4" fill="#F6C431"/><circle cx="${x}" cy="${y}" r="1.5" fill="#D9771E"/>`).join('')}`:''}
+  ${sticks}
+  <path d="M163 150 Q165 161 180 161 Q195 161 197 150Z" fill="#E9B85A"/><ellipse cx="180" cy="150" rx="17" ry="3" fill="#7A4E1A"/>
+  <rect x="116" y="160" width="128" height="6" rx="1.5" fill="#E9B85A"/><rect x="122" y="166" width="116" height="14" fill="#4A120F"/>`}
+/* ---------- Sân miếu rộng ---------- */
+const OFF=270,gx=p=>(OFF+p*3.6)/9;
+function propsLeft(){
+  let bamboo='';for(const [x,h] of [[22,120],[34,100],[46,128],[58,92]])bamboo+=`<rect x="${x}" y="${182-h}" width="5" height="${h}" rx="2.5" fill="#5E9B3C"/>${[0,1,2,3].map(i=>`<rect x="${x-.5}" y="${182-h+12+i*26}" width="6" height="2" fill="#467A2C"/>`).join('')}<ellipse cx="${x+9}" cy="${182-h+6}" rx="9" ry="3" fill="#6FB04A" transform="rotate(-25 ${x+9} ${182-h+6})"/>`;
+  let sticks='';for(let i=0;i<7;i++)sticks+=`<rect x="${198+i*1.7}" y="${160+(i%3)*2}" width="1.3" height="14" fill="#D9A84E"/>`;
+  return `${bamboo}
+  <rect x="100" y="104" width="6" height="96" fill="#7A4E1A"/><rect x="230" y="104" width="6" height="96" fill="#7A4E1A"/>
+  <path d="M86 108 Q168 84 250 108 L242 116 Q168 96 94 116Z" fill="#B3261E"/>
+  <rect x="122" y="114" width="92" height="20" rx="3" fill="#F6D27A" stroke="#8E1C17" stroke-width="1.5"/>
+  <text x="168" y="128.5" text-anchor="middle" font-family="Be Vietnam Pro, sans-serif" font-size="11" font-weight="800" fill="#7A1C12">XIN XĂM</text>
+  <rect x="176" y="190" width="58" height="6" rx="1.5" fill="#8A5A2B"/><rect x="180" y="196" width="50" height="16" fill="#C0302A"/><rect x="180" y="196" width="50" height="3" fill="#E9B85A"/>
+  ${sticks}<rect x="196" y="170" width="16" height="21" rx="2.5" fill="#8E3B1E"/><rect x="196" y="176" width="16" height="3" fill="#E9B85A"/>`}
+function propsRight(){
+  let scal='';for(let i=0;i<8;i++)scal+=`<circle cx="${778+i*18}" cy="101" r="9" fill="${i%2?'#E8962A':'#D2475A'}"/>`;
+  let mat='';for(let i=0;i<7;i++)mat+=`<path d="M${708+i*24} 212 L${700+i*26} 236" stroke="#C9A85A" stroke-width="1.5"/>`;
+  return `<rect x="662" y="112" width="5" height="102" fill="#7A4E1A"/><rect x="758" y="112" width="5" height="102" fill="#7A4E1A"/>
+  <rect x="656" y="116" width="114" height="34" rx="3" fill="#FBF1DC" stroke="#8E1C17" stroke-width="2"/>
+  <text x="713" y="131" text-anchor="middle" font-family="Be Vietnam Pro, sans-serif" font-size="11" font-weight="800" fill="#8E1C17">THẦY PHÁN</text>
+  <text x="713" y="144" text-anchor="middle" font-family="Be Vietnam Pro, sans-serif" font-size="7.5" font-weight="600" fill="#5A3A1A">Vận · Tuổi · Ngày</text>
+  <path d="M700 212 L862 212 L884 238 L688 238Z" fill="#E3C77E"/>${mat}
+  <rect x="848" y="92" width="4" height="122" fill="#5A3A1A"/>
+  <path d="M770 100 Q850 46 930 100Z" fill="#D2475A"/><path d="M810 100 Q850 52 850 52 Q850 52 890 100Z" fill="#E8962A"/>${scal}
+  <rect x="792" y="200" width="54" height="6" rx="1.5" fill="#8A5A2B"/><rect x="796" y="206" width="4" height="10" fill="#6A4220"/><rect x="838" y="206" width="4" height="10" fill="#6A4220"/>
+  <rect x="800" y="194" width="18" height="6" rx="1" fill="#F4EBDD" stroke="#8A5A2B" stroke-width=".8"/><path d="M826 198 L840 190" stroke="#3A2A1A" stroke-width="1.6" stroke-linecap="round"/>`}
+function sceneSVG(ex){
+  const h=new Date().getHours(),L=toLunar(now),night=h<5||h>=19,eve=!night&&h>=17,full=L.d>=14&&L.d<=16;
+  const sky=night?['#18203B','#3B3563']:eve?['#F3A86C','#7A4462']:['#BFE3F2','#FBEBD3'];
+  let stars='';if(night)for(let i=0;i<34;i++)stars+=`<circle cx="${(i*131)%900}" cy="${8+(i*37)%54}" r="${i%3?0.8:1.2}" fill="#fff" opacity=".8"/>`;
+  let tiles='';for(let i=0;i<4;i++)tiles+=`<path d="M0 ${198+i*20} H900" stroke="#C6AF88" stroke-width="1"/>`;
+  return `<svg class="scene-bg" viewBox="0 0 900 260" preserveAspectRatio="none" aria-hidden="true">
+  <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky[0]}"/><stop offset="1" stop-color="${sky[1]}"/></linearGradient>
+  <radialGradient id="lglow"><stop offset="0" stop-color="#FFB54A" stop-opacity=".75"/><stop offset="1" stop-color="#FFB54A" stop-opacity="0"/></radialGradient></defs>
+  <rect width="900" height="182" fill="url(#sky)"/>${stars}
+  <circle cx="${OFF+312}" cy="30" r="${full?15:11}" fill="${night||full?'#FFF3C8':'#FFE08A'}" opacity="${night||full?1:.75}"/>
+  <circle cx="250" cy="160" r="26" fill="#4E8D57"/><circle cx="650" cy="160" r="26" fill="#4E8D57"/><circle cx="890" cy="150" r="30" fill="#3F7A4A"/>
+  <g transform="translate(${OFF} 0)">
+  <circle cx="18" cy="150" r="34" fill="#3F7A4A"/><circle cx="46" cy="166" r="24" fill="#4E8D57"/><circle cx="342" cy="150" r="34" fill="#3F7A4A"/><circle cx="314" cy="166" r="24" fill="#4E8D57"/>
+  <rect x="70" y="76" width="220" height="106" fill="#8E2A1F"/>
+  <path d="M44 80 Q66 76 78 60 L282 60 Q294 76 316 80 Q300 82 288 76 L72 76 Q60 82 44 80Z" fill="#1F6B5A"/>
+  <path d="M86 60 Q100 54 108 42 L252 42 Q260 54 274 60Z" fill="#26806B"/>
+  <rect x="122" y="37" width="116" height="6" rx="3" fill="#E9B85A"/><circle cx="180" cy="32" r="6" fill="#E9B85A"/>
+  <rect x="80" y="80" width="10" height="102" fill="#B3261E"/><rect x="270" y="80" width="10" height="102" fill="#B3261E"/>
+  <rect x="104" y="86" width="152" height="96" fill="#5A150F"/>
+  <g id="altar-g">${altarGroup(ex)}</g>
+  ${[96,264].map((x,i)=>`<line x1="${x}" y1="78" x2="${x}" y2="90" stroke="#3A1A10"/><circle cx="${x}" cy="100" r="22" fill="url(#lglow)" opacity="${night||eve?1:.3}"/><g class="lant" style="animation-delay:${i*.7}s"><ellipse cx="${x}" cy="100" rx="8" ry="10" fill="#E33B2E"/><rect x="${x-4}" y="89" width="8" height="2" fill="#F6D27A"/><rect x="${x-4}" y="109" width="8" height="2" fill="#F6D27A"/></g>`).join('')}
+  </g>
+  <rect y="182" width="900" height="78" fill="#D8C4A2"/>${tiles}
+  <path d="M${OFF+150} 182 L${OFF+210} 182 L${OFF+246} 260 L${OFF+114} 260Z" fill="#E8DABF"/>
+  <rect y="178" width="900" height="5" fill="#B89E77"/>
+  ${propsLeft()}${propsRight()}</svg>`}
+const SLOT_X=[8,17,26,36,64,74,83,92],SLOT_B=[22,13,4];
+function sceneCast(ex){ex=ex||[];const seen=new Set(),cast=[];
+  altarToday().forEach(e=>{const p=person(e.pid);if(!p||ex.includes(e.pid))return;
+    if(!seen.has(e.pid)){seen.add(e.pid);cast.push({pid:e.pid,kid:false})}
+    kids(p.fam).forEach(k=>{if(!seen.has(k.id)&&!ex.includes(k.id)){seen.add(k.id);cast.push({pid:k.id,kid:true})}})});
+  return cast.map((c,i)=>{const row=Math.floor(i/8)%3;return Object.assign(c,{x:gx(SLOT_X[i%8]+(row===1?2.5:row===2?-2:0)),b:SLOT_B[row]})})}
+const charEl=c=>`<button class="ch idle${c.kid?' kid':''}" data-act="char" data-p="${c.pid}" style="left:${c.x}%;bottom:${c.b}%;z-index:${Math.round(100-c.b)};--d:${(hash(c.pid)%30)/10}s" aria-label="${esc(person(c.pid).n)}">${chibiSVG(c.pid)}</button>`;
+const NPC={tu:{name:'Ông Từ',x:150/9,b:16,label:'Ông Từ, bấm để xin xăm'},thay:{name:'Thầy Lộc',x:770/9,b:12,label:'Thầy Lộc, bấm để xem bói'}};
+function npcSVG(k){
+  const thay=k==='thay',skin='#F1C19C',robe=thay?'#22406E':'#7A4A2A';
+  return `<svg viewBox="0 -8 60 96" aria-hidden="true">
+  <ellipse cx="30" cy="85" rx="15" ry="3" fill="rgba(0,0,0,.2)"/>
+  <ellipse cx="24" cy="83" rx="5" ry="2.4" fill="#2B2B2B"/><ellipse cx="36" cy="83" rx="5" ry="2.4" fill="#2B2B2B"/>
+  <g class="upper">
+  <path d="M17 48 Q30 44 43 48 L47 82 Q30 85 13 82Z" fill="${robe}"/><path d="M30 47 L30 82" stroke="rgba(0,0,0,.2)" stroke-width="1"/>
+  <rect x="11" y="50" width="8" height="17" rx="4" fill="${robe}"/><circle cx="15" cy="67" r="3.2" fill="${skin}"/>
+  ${thay?`<g class="fan"><path d="M45 66 L60 50 A21 21 0 0 1 58 74 Z" fill="#FBF1DC" stroke="#8E1C17" stroke-width=".8"/><path d="M45 66 L59 56 M45 66 L60 63 M45 66 L59 70" stroke="#C9A85A" stroke-width=".6"/></g>`
+     :`<g class="tube"><rect x="40" y="52" width="9" height="15" rx="1.5" fill="#8E3B1E"/><rect x="40" y="56" width="9" height="2" fill="#E9B85A"/>${[41.5,43.5,45.5,47.2].map((x,i)=>`<rect x="${x}" y="${45+(i%2)*2}" width="1.1" height="8" fill="#D9A84E"/>`).join('')}</g>`}
+  <rect x="41" y="50" width="8" height="15" rx="4" fill="${robe}"/><circle cx="45" cy="66" r="3.2" fill="${skin}"/>
+  <circle cx="30" cy="30" r="22" fill="${skin}"/>
+  ${thay?`<g fill="none" stroke="#3A2A1A" stroke-width="1.4"><circle cx="22" cy="32" r="5"/><circle cx="38" cy="32" r="5"/><path d="M27 32h6"/></g><circle cx="22" cy="32" r="1.6" fill="#2B2220"/><circle cx="38" cy="32" r="1.6" fill="#2B2220"/>`
+     :`<path d="M18.5 33 Q22 30 25.5 33 M34.5 33 Q38 30 41.5 33" fill="none" stroke="#2B2220" stroke-width="1.6" stroke-linecap="round"/>`}
+  <circle cx="16.5" cy="39" r="3" fill="#F08A8A" opacity=".4"/><circle cx="43.5" cy="39" r="3" fill="#F08A8A" opacity=".4"/>
+  ${thay?`<path d="M22 41 Q30 37 38 41 Q36 44 30 43 Q24 44 22 41Z" fill="#EDEDED"/><path d="M24 43 Q30 72 36 43Z" fill="#F4F4F4"/><path d="M14 22 Q14 14 18 12" stroke="#EDEDED" stroke-width="2" fill="none"/>`
+     :`<path d="M23 40.5 Q30 37.5 37 40.5 Q34 42.5 30 41.6 Q26 42.5 23 40.5Z" fill="#9A9A9A"/><path d="M27 44.5 Q30 47 33 44.5" fill="none" stroke="#8A3B2E" stroke-width="1.3" stroke-linecap="round"/>`}
+  <path d="M7 24 Q7 4 30 4 Q53 4 53 24 Q30 15 7 24Z" fill="#1C1F33"/>
+  <path d="M9 18 Q30 9 51 18 M8 22 Q30 13 52 22" stroke="#3A3F60" stroke-width="1.2" fill="none"/>
+  </g></svg>`}
+const npcEl=k=>`<button class="npc ${k}" data-act="npc" data-k="${k}" style="left:${NPC[k].x}%;bottom:${NPC[k].b}%;z-index:${Math.round(100-NPC[k].b)}" aria-label="${NPC[k].label}">${npcSVG(k)}<span class="npc-tag">${NPC[k].name}</span></button>`;
+function sceneHTML(){const ex=UI.anim?UI.anim.ids:[];
+  return `<div class="scene-wrap"><div class="scene-scroll" id="scene-scroll"><div class="scene" id="scene">${sceneSVG(ex)}${npcEl('tu')}${npcEl('thay')}${sceneCast(ex).map(charEl).join('')}</div></div>
+  <button class="pan l" data-act="pan" data-x="0">‹ Xin xăm</button><button class="pan r" data-act="pan" data-x="1">Thầy bói ›</button>
+  ${UI.enter?'<div class="doors" aria-hidden="true"><i></i><i></i></div>':''}</div>`}
+function showSay(el,txt){const sc=document.getElementById('scene'),scr=document.getElementById('scene-scroll');if(!sc||!scr)return;sc.querySelectorAll('.say').forEach(s=>s.remove());
+  const d=document.createElement('div');d.className='say';d.textContent=txt;sc.appendChild(d);
+  const x=Math.max(scr.scrollLeft+80,Math.min(scr.scrollLeft+scr.clientWidth-80,el.offsetLeft));d.style.left=x+'px';d.style.top=Math.max(d.offsetHeight+4,el.offsetTop+4)+'px';
+  setTimeout(()=>d.remove(),3400)}
+const npcLines=k=>k==='tu'?(isLe()?['Hôm nay ngày đẹp, xin một quẻ đi con!','Thành tâm khấn rồi hẵng lắc nhé.']:['Mùng 1, rằm mới xin xăm cho linh nhé!','Thắp hương xong ghé ông chơi.'])
+  :['Lại đây thầy xem cho!','Xem tuổi vợ chồng không? Thầy xem miễn phí!','Hẹn kèo ngày nào, thầy chọn giờ cho.','Thầy phán cho vui thôi nhé!'];
+let chatterT=null,chatterI=0;
+function startChatter(){if(chatterT)return;chatterT=setInterval(()=>{const scr=document.getElementById('scene-scroll');if(!scr){clearInterval(chatterT);chatterT=null;return}
+  if(document.querySelector('.scrim'))return;
+  const vis=[...document.querySelectorAll('.npc')].filter(n=>n.offsetLeft>scr.scrollLeft&&n.offsetLeft<scr.scrollLeft+scr.clientWidth);if(!vis.length)return;
+  const n=vis[chatterI%vis.length],L=npcLines(n.dataset.k);showSay(n,L[(chatterI++>>1)%L.length])},5200)}
+function playLight(){
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const f=myFam(),already=altarToday().some(e=>e.pid!==S.me&&person(e.pid)&&person(e.pid).fam.id===f.id);
+  const ids=[S.me,...(already?[]:kids(f).map(k=>k.id))];
+  S.tab='altar';S.detail=null;UI.center=true;
+  if(reduce){render();scrollTo(0,0);toast('🙏 Nén hương đã thắp. Cầu cho nhà mình bình an, may mắn!');return}
+  UI.anim={ids};render();scrollTo(0,0);
+  const sc=document.getElementById('scene');
+  const els=ids.map((id,i)=>{const kid=i>0,d=document.createElement('div');d.className='ch walking moving'+(kid?' kid':'');
+    d.style.left=gx(-8-i*7)+'%';d.style.bottom=(kid?5:8)+'%';d.style.zIndex=150-i;d.innerHTML=chibiSVG(id);sc.appendChild(d);return d});
+  const alive=()=>document.getElementById('scene')===sc;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{els.forEach((d,i)=>{d.style.setProperty('--t','2.4s');
+    d.style.left=gx(i===0?50:i%2?41-i:59+i)+'%';d.style.bottom=(i===0?27:24)+'%'})}));
+  setTimeout(()=>{if(!alive())return;els.forEach((d,i)=>{d.classList.remove('walking');d.classList.add('bowing');if(i===0)d.classList.add('praying')})},2500);
+  setTimeout(()=>{if(!alive())return;els.forEach(d=>d.classList.remove('bowing','praying'));UI.anim={ids:[]};
+    document.getElementById('altar-g').innerHTML=altarGroup([]);toast('🙏 Nén hương đã thắp. Cầu cho nhà mình bình an, may mắn!')},5000);
+  setTimeout(()=>{if(!alive())return;const cast=sceneCast([]);
+    els.forEach((d,i)=>{const c=cast.find(x=>x.pid===ids[i]);if(!c)return;d.style.setProperty('--t','1.4s');d.classList.add('walking');d.style.left=c.x+'%';d.style.bottom=c.b+'%'})},5400);
+  setTimeout(()=>{UI.anim=null;if(alive()){const y=scrollY;render();scrollTo(0,y)}},6900);
+}
+
+/* ---------- Xin xăm ---------- */
+const isLe=()=>{const l=toLunar(now);return l.d===1||l.d===15};
+const LV=['Thượng cát','Trung bình','Hạ'];
+const XAM=[
+ [0,['Xuân về nắng ấm sân nhà','Cây cau trổ hạt, vườn hoa đâm chồi','Lộc trời gõ cửa tới nơi','Một nhà vui vẻ, nụ cười đầy mâm'],'Lộc đến tận cửa, việc nhà hanh thông.','Mở lòng đón khách, chia lộc cho người.'],
+ [0,['Thuyền xuôi gió thuận buồm căng','Bến xa đã thấy ánh trăng đón chờ','Việc làm đúng lúc đúng giờ','Tiền vào như nước, chẳng ngờ được to'],'Thời vận đang lên, cứ mạnh dạn làm.','Đừng chần chừ, nhưng nhớ giữ chữ tín.'],
+ [0,['Hoa mai nở trước hiên nhà','Chim khôn đậu xuống hót ca rộn ràng','Bạn bè tụ hội một làng','Đường xa hoá gần, đá vàng bền lâu'],'Quý nhân chính là bạn bè quanh mình.','Năng gặp gỡ, giữ tình xóm.'],
+ [0,['Ruộng sâu lúa trổ đòng đòng','Mưa thuận gió hoà, nhà nông mỉm cười','Siêng năng chẳng phụ lòng người','Mùa này gặt hái gấp mười mùa qua'],'Công sức bỏ ra sắp được đền đáp.','Cứ đều tay, đừng nóng vội.'],
+ [0,['Trăng rằm sáng tỏ sân đình','Cả nhà quây quần, tâm tình bên nhau','Con ngoan, cha mẹ sống lâu','Phúc dày như đất, lộc sâu như nguồn'],'Gia đạo êm ấm, phúc lộc đầy đủ.','Dành thêm thời gian cho người nhà.'],
+ [0,['Cá chép vượt sóng hoá rồng','Bao năm bền chí, thành công tới gần','Người tài gặp được minh quân','Bước lên một bước, muôn phần vẻ vang'],'Công việc có bước tiến lớn.','Nắm lấy cơ hội, đừng ngại thử sức.'],
+ [0,['Đầu năm hái lộc đầu cành','Cành non mơn mởn, xuân xanh tràn trề','Đi đâu cũng gặp người quê','Tay bắt mặt mừng, đề huề phúc an'],'Ra ngoài gặp may, giao tiếp thuận lợi.','Chủ động hỏi han, kết nối.'],
+ [0,['Giếng trong múc mãi không vơi','Lòng người hào phóng, trời ơi lộc về','Cho đi chẳng thấy nhiêu khê','Nhận về gấp bội, bốn bề bình yên'],'Rộng rãi thì lộc càng đầy.','Mời xóm một bữa, phúc sẽ quay về.'],
+ [0,['Nhà cao móng vững chân tường','Cột kèo chắc chắn, gió sương chẳng màng','Con đường đã chọn rõ ràng','Đi đều từng bước, vững vàng tới nơi'],'Nền tảng vững, kế hoạch đúng hướng.','Giữ kỷ luật, đừng đổi ý giữa chừng.'],
+ [0,['Én bay chao lượn trời xuân','Tin vui từ chốn xa gần gửi về','Người thân tay bắt mặt kề','Họp nhà đông đủ, tràn trề tiếng vui'],'Sắp có tin vui trong nhà.','Gọi điện hỏi thăm họ hàng.'],
+ [0,['Vườn nhà cây trái sum suê','Trẻ thơ chạy nhảy, đi về reo vui','Học hành tấn tới không lùi','Ông bà mát mặt, ngọt bùi đủ đầy'],'Con cái ngoan, học hành tiến bộ.','Khen con nhiều hơn một chút.'],
+ [0,['Rồng mây gặp hội gió lành','Trăm điều mong ước, đã thành ngay đây','Lộc tài như nước sông đầy','Biết chia biết giữ, tháng này vẻ vang'],'Đại cát, mọi việc như ý.','Gặp vận tốt, càng nên khiêm tốn.'],
+ [1,['Mây che trăng chẳng được lâu','Gió lên mây tạn, trăng sau lại tròn','Việc nào còn dở mỏi mòn','Kiên trì thêm chút, vẫn còn kịp thôi'],'Trở ngại nhỏ, rồi sẽ qua.','Bền bỉ thêm vài tuần.'],
+ [1,['Đò ngang chờ khách bến sông','Nước lên nước xuống, đừng mong vội vàng','Đợi khi con nước dịu dàng','Sang sông nhẹ nhõm, mọi đàng thảnh thơi'],'Chưa phải lúc, chờ thời thì hơn.','Việc lớn để sau rằm hẵng làm.'],
+ [1,['Cây non mới bén chân đồi','Mưa nhiều nắng ít, còn hồi lớn lên','Chăm cây chớ có bỏ quên','Năm sau quả ngọt, ngồi bên hưởng nhàn'],'Việc mới cần thời gian nuôi dưỡng.','Đầu tư công sức, đừng mong lãi ngay.'],
+ [1,['Đường làng có chỗ gập ghềnh','Đi chậm một chút, chênh vênh chẳng sờn','Bạn bè dìu dắt cho hơn','Qua đoạn khó ấy, chẳng còn lo chi'],'Có khó khăn nhưng có người giúp.','Đừng ngại nhờ bạn trong xóm.'],
+ [1,['Nồi cơm lửa nhỏ liu riu','Chớ vội mở vung, đợi chiều mới ngon','Việc gì cũng có lúc tròn','Nóng vội hỏng việc, lại còn thiệt thân'],'Vội vàng dễ hỏng, thong thả thì thành.','Bàn kỹ với vợ chồng trước khi quyết.'],
+ [1,['Trời chiều mây xám giăng ngang','Mưa rào rồi tạnh, nắng vàng lại lên','Buồn vui là chuyện chẳng bền','Giữ lòng thư thái, mọi bên an hoà'],'Tâm trạng thất thường, rồi sẽ ổn.','Ngủ sớm, rủ bạn đi cafe xả hơi.'],
+ [1,['Ao nhà cá lớn cá con','Thả câu đều tay, vẫn còn cá ăn','Chớ ham ao lạ xa xăm','Ao nhà quen nước, cả năm đủ đầy'],'Giữ việc đang có, chưa nên đổi.','Cân nhắc kỹ lời mời làm ăn mới.'],
+ [1,['Gánh hàng hai đầu đong đưa','Bên nặng bên nhẹ, đã vừa sức chưa','Chia đều cho đỡ nắng mưa','Đường xa mấy cũng như vừa bước chân'],'Công việc và gia đình cần cân bằng.','Chia bớt việc, đừng ôm hết vào mình.'],
+ [1,['Hoa sen mọc giữa bùn lầy','Gió đưa hương ngát, mới hay lòng thành','Việc ngay chẳng sợ tiếng lành','Tiếng xấu rồi cũng tan nhanh như sương'],'Có lời ra tiếng vào, mình ngay thẳng thì không sao.','Bỏ qua chuyện thị phi.'],
+ [1,['Mùa thu lá rụng sân chùa','Quét đi lại rụng, chẳng thua chẳng phiền','Việc nhà lặt vặt triền miên','Làm vui thì nhẹ, ưu phiền thì lâu'],'Việc vặt nhiều, giữ tâm vui.','Cả nhà cùng dọn dẹp một buổi.'],
+ [1,['Cầu tre lắt lẻo qua mương','Bước chân cẩn thận, con đường vẫn qua','Tiền vào chớ vội tiêu ra','Để dành một ít, phòng xa lúc cần'],'Tài chính tạm ổn, cần chi tiêu cẩn thận.','Bớt một khoản mua sắm chưa cần.'],
+ [1,['Ngựa hay chưa gặp người tài','Đứng chờ bên bến, sớm mai có người','Đừng buồn khi chửa gặp thời','Mài gươm chờ dịp, đến hồi vẻ vang'],'Tài năng chưa được nhìn nhận, cơ hội đang tới.','Học thêm một kỹ năng mới.'],
+ [1,['Bếp nhà khói toả lam chiều','Mẹ nêm vừa miệng, thương yêu đong đầy','Đôi khi mặn nhạt đổi thay','Nhường nhau một chút, vị này thêm ngon'],'Vợ chồng có thể bất đồng nhỏ.','Nhường nhau một câu, nhà êm cả tuần.'],
+ [1,['Thả diều trước gió lưng chừng','Dây căng quá mức thì đừng kéo thêm','Thả ra một chút cho êm','Diều bay cao vút, êm đềm trời xanh'],'Đang căng thẳng, nên nới lỏng.','Bớt kiểm soát, tin người khác hơn.'],
+ [1,['Chợ phiên tấp nập người qua','Bán mua thong thả, nghĩ xa hẵng làm','Món hời chớ có vội ham','Của rẻ của ôi, chớ tham mà lầm'],'Cẩn trọng chuyện tiền nong, mua bán.','Lời mời "lãi cao" thì hỏi kỹ người thân.'],
+ [1,['Trăng non mới nhú đầu cành','Còn cong còn mảnh, chưa thành vầng trăng','Đêm rằm rồi sẽ sáng bằng','Tròn đầy rực rỡ, vầng trăng sáng ngời'],'Việc mới bắt đầu, cần thời gian để tròn.','Đặt mục tiêu nhỏ cho tháng này.'],
+ [2,['Mưa dầm thấm đất lâu ngày','Áo khăn ướt sũng, đường lầy khó đi','Dừng chân trú tạm chút thì','Tạnh mưa ta lại bước đi nhẹ nhàng'],'Thời gian này hơi trắc trở.','Tạm dừng việc lớn, lo nghỉ ngơi.'],
+ [2,['Thuyền con gặp lúc sóng to','Buông chèo chớ vội, đắn đo vững tay','Bão nào rồi cũng tan ngay','Bình tâm giữ lái, qua ngày gió yên'],'Gặp sóng gió, giữ bình tĩnh sẽ qua.','Chưa ký kết, chưa vay mượn lớn lúc này.'],
+ [2,['Cây cao gió lớn lay cành','Lá rơi lả tả, chớ đành buồn lo','Gốc sâu rễ chắc còn to','Xuân sang lộc mới, chẳng lo thiếu gì'],'Có mất mát nhỏ, nhưng nền vẫn vững.','Đừng tiếc của, giữ người là chính.'],
+ [2,['Lời qua tiếng lại trong nhà','Nóng lên một chút, hoá ra giận hờn','Nhịn nhau một câu cho trơn','Cơm lành canh ngọt, còn hơn tranh phần'],'Dễ cãi vã trong nhà.','Nói chậm lại, rủ cả nhà đi ăn ngoài.'],
+ [2,['Đường xa chân mỏi gối chồn','Ngồi bên gốc gạo, nghỉ còn chưa lâu','Việc nhiều chồng chất trên đầu','Bớt đi một nửa, mai sau lại làm'],'Đang quá sức.','Nghỉ một ngày, sức khoẻ trước đã.'],
+ [2,['Đêm khuya đèn cạn bơ vơ','Tìm diêm chẳng thấy, ngồi chờ bình minh','Sáng ra mọi chuyện rõ tình','Chớ lo chớ vội, tự mình rối thêm'],'Có chuyện chưa rõ, đừng đoán bừa.','Hỏi thẳng, nói rõ, hiểu lầm sẽ tan.'],
+ [2,['Ví tiền mỏng tựa lá tre','Tháng này chi khéo, kẻo nghe thở dài','Nhậu ít, cà phê bớt vài','Qua mùa thắt chặt, tương lai rủng rỉnh'],'Tài chính hơi eo hẹp.','Lập danh sách chi tiêu tháng này.'],
+ [2,['Hạt giống gieo phải đất khô','Tưới hoài chẳng mọc, đừng xô đừng phiền','Đổi sang mảnh đất bên hiên','Mầm xanh lại nhú, an yên tháng ngày'],'Cách đang làm chưa hiệu quả.','Thử hướng khác, hỏi ý người có kinh nghiệm.'],
+];
+const TOPICS=[['chung','Hỏi chung'],['gia','Gia đạo'],['tai','Tài lộc'],['cong','Công việc'],['con','Con cái']];
+const TPOOL={
+ gia:[['Nhà cửa êm ấm, vợ chồng thuận hoà, có khách quý ghé chơi.','Trong nhà có chuyện vui, cả nhà sum vầy.','Người lớn khoẻ mạnh, trẻ nhỏ ngoan ngoãn.'],['Nhà có vài chuyện nhỏ cần bàn, nói chuyện nhẹ nhàng là ổn.','Bình thường, yên ổn, nên dành thời gian cho nhau.','Có việc nhà cần sửa sang, làm dần là xong.'],['Dễ có hiểu lầm, nói chậm, nghe nhiều sẽ qua.','Người nhà hơi mệt, nhắc nhau nghỉ ngơi.','Chuyện cũ dễ khơi lại, bỏ qua cho nhẹ lòng.']],
+ tai:[['Tiền vào đều tay, có khoản thưởng bất ngờ.','Làm ăn thuận lợi, đầu tư nhỏ có lời.','Có người trả món nợ cũ hoặc mời hợp tác tốt.'],['Thu chi cân bằng, chưa dư nhiều nhưng không thiếu.','Có khoản chi bất ngờ, may mà vẫn xoay được.','Kiếm được, nhưng nên tiết kiệm thêm.'],['Hạn chế cho vay, đi vay và đầu tư lúc này.','Có thể hao chút tiền, coi như của đi thay người.','Chặt tay chi tiêu một thời gian là ổn.']],
+ cong:[['Được cấp trên ghi nhận, có thể lên chức hoặc tăng lương.','Việc đang làm về đích đẹp.','Gặp quý nhân giới thiệu việc tốt.'],['Công việc đều đều, chủ động hơn để bứt lên.','Có chút áp lực, chia việc hợp lý sẽ nhẹ.','Đồng nghiệp hỗ trợ tốt, cứ hỏi khi cần.'],['Công việc chậm lại, đừng ép mình quá.','Có trục trặc nhỏ, kiểm tra kỹ trước khi gửi.','Chưa phải lúc đổi việc, cứ giữ chỗ đang làm.']],
+ con:[['Con học tiến bộ, có tin vui ở trường.','Các bé khoẻ, ăn ngon ngủ kỹ.','Con biết nghe lời, tự giác hơn hẳn.'],['Con cần bố mẹ kèm thêm chút ít.','Bé hơi mè nheo, chơi cùng con nhiều hơn là ổn.','Học hành tạm ổn, khen ngợi sẽ giúp con cố gắng.'],['Bé dễ ốm vặt, giữ ấm và cho ngủ sớm.','Con có chút buồn, hỏi han con nhiều hơn.','Con hơi lơ là học, nhắc nhở nhẹ nhàng.']],
+};
+function laXam(n,topic){const q=XAM[n-1],lv=q[0],tp=TOPICS.find(t=>t[0]===topic)||TOPICS[0];
+  return `<div class="lx lv${lv}"><div class="lx-h"><span>Quẻ số ${n}</span><b>${LV[lv]}</b></div>
+  <div class="lx-poem">${q[1].map(esc).join('<br>')}</div>
+  <dl><dt>Ý quẻ</dt><dd>${esc(q[2])}</dd>${topic!=='chung'?`<dt>Về ${tp[1].toLowerCase()}</dt><dd>${esc(TPOOL[topic][lv][n%3])}</dd>`:''}<dt>Lời khuyên</dt><dd>${esc(q[3])}</dd></dl>
+  <p class="lx-note">Xin xăm cho vui, tham khảo thôi nhé.</p></div>`}
+const tubeSVG=()=>`<svg viewBox="0 0 100 140" aria-hidden="true">${[0,1,2,3,4,5,6,7].map(i=>`<rect x="${31+i*5}" y="${10+(i%3)*5}" width="3" height="50" rx="1" fill="#D9A84E"/><rect x="${31+i*5}" y="${10+(i%3)*5}" width="3" height="6" fill="#C0302A"/>`).join('')}
+  <rect x="24" y="40" width="52" height="94" rx="8" fill="#8E3B1E"/><rect x="24" y="58" width="52" height="8" fill="#E9B85A"/><rect x="24" y="110" width="52" height="8" fill="#E9B85A"/><ellipse cx="50" cy="40" rx="26" ry="6" fill="#5A220F"/></svg>`;
+function sheetXam(){const rec=(S.xam||{})[S.me],done=rec&&rec.date===today;
+  UI.xam={step:done?'result':(isLe()?'ask':'intro'),topic:done?rec.topic:'chung',n:done?rec.n:null,tries:0,keo:null,old:done,shared:done&&rec.shared};
+  sheet('<div id="xam" class="npc-sheet"></div>');renderXam()}
+function npcHead(k,name,line){return `<div class="npc-head"><div class="npc-face">${npcSVG(k)}</div><div><b>${name}</b><div class="npc-line">${line}</div></div></div>`}
+function renderXam(){const host=document.getElementById('xam');if(!host)return;const X=UI.xam,sh=host.closest('.sheet'),top=sh.scrollTop;
+  const next=findLunar(now,l=>l.d===1||l.d===15);let h='';
+  if(X.step==='intro')h=npcHead('tu','Ông Từ',`Xin xăm nên đợi ${next.l.d===1?'mùng 1':'ngày rằm'} cho linh con ạ. Còn ${next.days} ngày nữa, ${DOW[next.date.getDay()]} ${dm(next.date)}.`)+
+    `<button class="btn sun" data-act="xam-demo">Xin thử luôn (chỉ có ở bản demo)</button><button class="btn ghost" data-act="close-btn">Để hôm khác</button>`;
+  else if(X.step==='ask')h=npcHead('tu','Ông Từ','Con muốn hỏi chuyện gì? Chọn rồi thành tâm khấn trong lòng nhé.')+
+    `<div class="chips">${TOPICS.map(([k,t])=>`<button class="chip" data-act="xam-topic" data-k="${k}" aria-pressed="${X.topic===k}">${t}</button>`).join('')}</div>
+     <div class="tube-box">${tubeSVG()}</div><button class="btn sun" data-act="xam-shake">Lắc ống xăm</button>`;
+  else if(X.step==='shake')h=npcHead('tu','Ông Từ','Lắc đều tay… que nào tự rơi ra là quẻ của con.')+`<div class="tube-box"><div class="shaking">${tubeSVG()}</div></div>`;
+  else if(X.step==='fell'||X.step==='keo')h=npcHead('tu','Ông Từ',X.step==='fell'?`Que số ${X.n} rơi ra rồi! Giờ gieo keo xem Thần có đồng ý không.`:X.keo==='ok'?'Một sấp một ngửa: Thần đã đồng ý. Ông đọc quẻ cho con nhé!':X.keo==='cuoi'?'Hai mặt ngửa: Thần đang cười, con gieo lại nhé.':X.keo==='am'?'Hai mặt sấp: chưa được, con thành tâm gieo lại.':'Đồng xu đang lật…')+
+    `<div class="tube-box"><div class="stick-fell"><span>${X.n}</span></div><div class="coins${X.keo==='flip'?' flip':''}">${coin(X.keo,0)}${coin(X.keo,1)}</div></div>
+     ${X.keo==='ok'?'<button class="btn sun" data-act="xam-read">Xem lá xăm</button>':X.keo==='flip'?'':`<button class="btn sun" data-act="xam-keo">${X.keo?'Gieo lại':'Gieo keo'}</button>`}`;
+  else if(X.step==='result')h=npcHead('tu','Ông Từ',X.old?'Hôm nay con đã xin quẻ rồi, mỗi ngày lễ một quẻ thôi nhé. Đây là quẻ của con:':'Quẻ của con đây, ông giải cho nghe:')+laXam(X.n,X.topic)+
+    `${X.shared?'<p class="sub small" style="margin:0">Đã khoe lên kênh chung.</p>':'<button class="btn" data-act="xam-share">Khoe quẻ lên kênh chung</button>'}<button class="btn ghost" data-act="close-btn">Xong</button>`;
+  host.innerHTML=h;sh.scrollTop=top}
+function coin(k,i){const f=k==='ok'?(i?'up':'down'):k==='cuoi'?'up':k==='am'?'down':'up';return `<span class="coin ${f}"><i></i></span>`}
+
+/* ---------- Thầy bói ---------- */
+const CAN=['Giáp','Ất','Bính','Đinh','Mậu','Kỷ','Canh','Tân','Nhâm','Quý'];
+const CHI=['Tý','Sửu','Dần','Mão','Thìn','Tỵ','Ngọ','Mùi','Thân','Dậu','Tuất','Hợi'];
+const CON=['Chuột','Trâu','Hổ','Mèo','Rồng','Rắn','Ngựa','Dê','Khỉ','Gà','Chó','Lợn'];
+const SINH={Kim:'Thủy',Thủy:'Mộc',Mộc:'Hỏa',Hỏa:'Thổ',Thổ:'Kim'},KHAC={Kim:'Mộc',Mộc:'Thổ',Thổ:'Thủy',Thủy:'Hỏa',Hỏa:'Kim'};
+const MAU={Kim:['trắng','bạc','vàng'],Mộc:['xanh lá','đen','xanh dương'],Thủy:['đen','xanh dương','trắng'],Hỏa:['đỏ','hồng','xanh lá'],Thổ:['vàng','nâu','đỏ']};
+const HUONG={Kim:'Tây, Tây Bắc',Mộc:'Đông, Đông Nam',Thủy:'Bắc',Hỏa:'Nam',Thổ:'Đông Bắc, Tây Nam'};
+function tuoi(dob){if(!dob)return null;const [y,m,d]=dob.split('-').map(Number);if(!y)return null;const ly=toLunar(new Date(y,m-1,d)).y,can=(ly+6)%10,ci=(ly+8)%12;
+  let s=[1,1,2,2,3,3,4,4,5,5][can]+[0,0,1,1,2,2,0,0,1,1,2,2][ci];if(s>5)s-=5;
+  return {ly,can:CAN[can],chi:CHI[ci],ci,con:CON[ci],menh:['','Kim','Thủy','Hỏa','Thổ','Mộc'][s]}}
+const VAN={5:['Hôm nay vận đỏ như son, làm gì cũng thuận.','Quý nhân đi ngang, có người giúp đúng lúc.','Lộc lá rủng rỉnh, nói câu nào người nghe câu nấy.'],
+  4:['Ngày khá đẹp, việc nhỏ suôn sẻ, việc lớn có tiến triển.','Tinh thần phấn chấn, rủ kèo là có người đi.','Có tin vui nho nhỏ trước giờ ăn tối.'],
+  3:['Ngày bình thường, cứ làm đều tay là ổn.','Không hên không xui, uống cà phê cho tỉnh là được.','Việc nào xong việc nấy, đừng ôm đồm.'],
+  2:['Hơi lận đận chút, nói ít nghe nhiều cho lành.','Dễ quên đồ, ra khỏi nhà nhớ kiểm tra ví và chìa khoá.','Đi đường chậm lại một chút, về nhà ăn cơm sớm.']};
+const NEN=['Rủ hội đi cafe sáng','Gọi điện hỏi thăm bố mẹ','Khen vợ hoặc chồng một câu','Dọn lại bàn làm việc','Đi bộ sau bữa tối','Chơi với con 30 phút','Mời hàng xóm chén trà','Đọc vài trang sách'];
+const TRANH=['Hứa đi kèo rồi bùng','Mua sắm theo cảm hứng','Tranh luận nảy lửa trong nhóm chat','Thức khuya lướt điện thoại','Uống quá chén','Cho vay tiền lúc đang vui','Ăn đêm nhiều dầu mỡ','Hứa điều chưa chắc làm được'];
+const THANG=['','Tháng Giêng khai xuân hái lộc, xóm mình đi lễ đầu năm cho đông đủ.','Tháng Hai trời ấm, hợp tụ tập ăn uống ngoài trời.','Tháng Ba lo việc nhà, sửa sang chuẩn bị mùa hè.','Tháng Tư lộc nhỏ rải đều, chăm chỉ là có.','Tháng Năm nắng nóng, các nhà giữ sức, hẹn cafe sáng là đẹp.','Tháng Sáu hợp đi chơi xa cùng các bé.','Tháng Bảy là tháng hiếu nghĩa, nhớ thăm ông bà, nói lời nhẹ nhàng.','Tháng Tám trăng tròn rước đèn, các bé vui, người lớn hoà thuận.','Tháng Chín công việc bận, nhớ nhắc nhau nghỉ ngơi.','Tháng Mười lộc về cuối năm, xóm đoàn kết thì mọi việc hanh thông.','Tháng Một trời lạnh, hợp lẩu tại gia. Nhà nào đăng cai sẽ đắc lộc.','Tháng Chạp tất niên sum vầy, khép sổ năm cũ, mở lòng đón xuân.'];
+const THAN=['Thanh Long','Minh Đường','Thiên Hình','Chu Tước','Kim Quỹ','Bảo Quang','Bạch Hổ','Ngọc Đường','Thiên Lao','Huyền Vũ','Tư Mệnh','Câu Trần'],GOODP=[0,1,4,5,7,10];
+const tlStart=c=>((c%6)*2+8)%12;
+function dayInfo(d){const jd=jdFromDate(d.getDate(),d.getMonth()+1,d.getFullYear()),dc=(jd+1)%12,l=toLunar(d),pos=(dc-tlStart((l.m+1)%12)+12)%12;
+  const hours=CHI.map((c,k)=>({c,k,good:GOODP.includes((k-tlStart(dc)+12)%12),from:(k*2+23)%24,to:(k*2+1)%24}));
+  return {l,can:CAN[(jd+9)%10],chi:CHI[dc],good:GOODP.includes(pos),than:THAN[pos],hours}}
+const hourChi=h=>Math.floor((h+1)/2)%12;
+function relate(a,b){let s=0,c,m;
+  if(a.ci===b.ci){s+=1;c='cùng tuổi '+a.chi}else if(a.ci%4===b.ci%4){s+=2;c='tam hợp'}else if((a.ci+b.ci)%12===1){s+=2;c='lục hợp'}else if((a.ci-b.ci+12)%12===6){s-=2;c='tứ hành xung'}else c='không xung không hợp';
+  if(SINH[a.menh]===b.menh||SINH[b.menh]===a.menh){s+=1;m='tương sinh'}else if(KHAC[a.menh]===b.menh||KHAC[b.menh]===a.menh){s-=1;m='tương khắc'}else m='bình hoà';
+  const v=s>=3?'Đại hợp! Hai người như cafe với sữa đặc, thiếu nhau là nhạt.':s===2?'Hợp nhau, làm gì chung cũng thuận. Kèo nào có hai người là kèo đó vui.':s===1?'Khá hợp, thỉnh thoảng lệch pha nhưng nhường nhau là êm.':s===0?'Bình hoà, chẳng hợp chẳng khắc. Thân hay không là do mình vun đắp.':s===-1?'Hơi khắc khẩu, nói chuyện dễ "va". Nhưng càng cãi càng hiểu nhau.':'Xung tuổi! Nhưng xóm mình có câu: xung mà thương mới là bạn lâu năm. Thầy giải: ngồi cạnh nhau, có người thứ ba pha trò là hoá hợp.';
+  return {s,c,m,v}}
+function sheetThay(tab,keoId){const sp=adults(myFam()).find(m=>m.id!==S.me);UI.thay={tab:tab||'van',a:S.me,b:sp?sp.id:null,keo:keoId||null,date:keoId?dayKey(S.keo.find(k=>k.id===keoId).when):today,shown:false};
+  sheet('<div id="thay" class="npc-sheet"></div>');renderThay()}
+function renderThay(){const host=document.getElementById('thay');if(!host)return;const T=UI.thay,sh=host.closest('.sheet'),top=sh.scrollTop;
+  const tabs=`<div class="seg seg3" role="group" aria-label="Chọn việc nhờ thầy">${[['van','Vận hôm nay'],['tuoi','Xem tuổi'],['ngay','Xem ngày']].map(([k,t])=>`<button data-act="thay-tab" data-k="${k}" aria-pressed="${T.tab===k}">${t}</button>`).join('')}</div>`;
+  let h='';
+  if(T.tab==='van'){const m=me(),t=tuoi(m.dob);
+    if(!t)h=npcHead('thay','Thầy Lộc',`${esc(m.n)} chưa khai ngày sinh, thầy chưa xem được. Điền vào hồ sơ nhà mình nhé.`)+tabs+'<button class="btn" data-act="edit-fam">Điền ngày sinh</button>';
+    else{const hs=hash(S.me+today),star=[2,3,3,4,4,4,5,5][hs%8],mau=MAU[t.menh][hs%3];
+      h=npcHead('thay','Thầy Lộc',`${esc(m.n)} tuổi ${t.can} ${t.chi} (tuổi con ${t.con.toLowerCase()}), mệnh ${t.menh}. Để thầy bấm đốt ngón tay…`)+tabs+
+      `<div class="lx"><div class="lx-h"><span>Vận hôm nay · ${dm(Date.now())}</span><b class="stars" aria-label="${star} trên 5 sao">${'★'.repeat(star)}${'☆'.repeat(5-star)}</b></div>
+       <p class="lx-say">“${VAN[star][(hs>>3)%3]}”</p>
+       <dl><dt>Màu may mắn</dt><dd>${mau}</dd><dt>Số may mắn</dt><dd>${(hs>>5)%90+10}</dd><dt>Hướng tốt</dt><dd>${HUONG[t.menh]}</dd><dt>Nên</dt><dd>${NEN[(hs>>7)%NEN.length]}</dd><dt>Tránh</dt><dd>${TRANH[(hs>>9)%TRANH.length]}</dd></dl>
+       <p class="lx-note">Thầy phán cho vui, tham khảo thôi nhé. Mai xem lại sẽ khác.</p></div>`}}
+  else if(T.tab==='tuoi'){const ppl=S.fams.flatMap(f=>f.members.filter(m=>m.dob&&(m.role==='kid'||m.claimed)));
+    const opt=sel=>ppl.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(p.role==='kid'?'Bé '+p.n:p.n)}</option>`).join('');
+    h=npcHead('thay','Thầy Lộc','Chọn hai người, thầy xem có hợp tuổi không. Vợ chồng, bạn nhậu hay thông gia tương lai đều được!')+tabs+
+    `<div class="two"><label class="f">Người thứ nhất<select id="ty-a">${opt(T.a)}</select></label><label class="f">Người thứ hai<select id="ty-b">${opt(T.b)}</select></label></div>
+     <button class="btn" data-act="thay-tuoi">Nhờ thầy xem</button>`;
+    if(T.shown){const pa=person(T.a),pb=person(T.b),a=pa&&tuoi(pa.dob),b=pb&&tuoi(pb.dob);
+      if(a&&b&&T.a!==T.b){const r=relate(a,b);T.lastTuoi={a:pa.n,b:pb.n,r};
+        h+=`<div class="lx"><div class="lx-h"><span>${esc(pa.n)} & ${esc(pb.n)}</span><b>${r.s>=2?'Hợp':r.s>=0?'Bình hoà':'Hơi khắc'}</b></div>
+        <dl><dt>${esc(pa.n)}</dt><dd>${a.can} ${a.chi} · mệnh ${a.menh}</dd><dt>${esc(pb.n)}</dt><dd>${b.can} ${b.chi} · mệnh ${b.menh}</dd><dt>Địa chi</dt><dd>${r.c}</dd><dt>Ngũ hành</dt><dd>${r.m}</dd></dl>
+        <p class="lx-say">“${r.v}”</p><p class="lx-note">Xem tuổi cho vui, tình cảm là do mình vun đắp.</p></div><button class="btn ghost" data-act="thay-share">Khoe lên kênh chung</button>`}
+      else h+='<p class="sub small">Chọn hai người khác nhau nhé.</p>'}}
+  else{const up=[...S.keo].filter(k=>k.when>Date.now()-3*3600e3).sort((a,b)=>a.when-b.when);
+    const [y,mo,d]=T.date.split('-').map(Number),date=new Date(y,mo-1,d,12),I=dayInfo(date),k=T.keo&&S.keo.find(x=>x.id===T.keo);
+    const kh=k&&new Date(k.when).getHours(),kgood=k&&I.hours[hourChi(kh)].good;
+    h=npcHead('thay','Thầy Lộc','Hẹn kèo ngày nào, thầy xem ngày tốt giờ đẹp cho.')+tabs+
+    `${up.length?`<div class="chips">${up.map(x=>`<button class="chip" data-act="thay-keo" data-id="${x.id}" aria-pressed="${T.keo===x.id}">${ty(x.type).e} ${esc(x.title)}</button>`).join('')}</div>`:''}
+     <label class="f">Hoặc chọn ngày<input type="date" id="td-date" value="${T.date}"></label>
+     <div class="lx"><div class="lx-h"><span>${DOW[date.getDay()]} ${dm(date)} · ${lunarName(I.l).replace('Ngày ','')} âm</span><b>${I.good?'Hoàng đạo':'Hắc đạo'}</b></div>
+     <dl><dt>Ngày</dt><dd>${I.can} ${I.chi} · sao ${I.than}</dd><dt>Giờ đẹp</dt><dd>${I.hours.filter(x=>x.good).map(x=>`${x.c} (${x.from}–${x.to}h)`).join(', ')}</dd>
+     ${k?`<dt>Giờ hẹn</dt><dd>${hm(k.when)} là giờ ${CHI[hourChi(kh)]}: ${kgood?'giờ hoàng đạo, đẹp!':'không phải giờ hoàng đạo, nhưng đi cafe thì thầy cho qua.'}</dd>`:''}</dl>
+     <p class="lx-say">“${I.good?'Ngày đẹp, hẹn hò gặp gỡ đều thuận. Chốt kèo đi!':'Ngày hắc đạo, việc lớn để hôm khác, còn đi cà phê với bạn thì cứ chọn giờ đẹp là ổn.'}”</p>
+     <p class="lx-note">Tính theo lịch âm và cách xem ngày truyền thống, tham khảo cho vui.</p></div>`}
+  host.innerHTML=h;sh.scrollTop=top}
+
+const PRAYER=`Nam mô A Di Đà Phật! (3 lần)
+Con lạy chín phương Trời, mười phương Chư Phật, Chư Phật mười phương.
+Con kính lạy Hoàng thiên Hậu Thổ chư vị Tôn thần.
+Con kính lạy Thần Tài vị tiền, ngài Thổ Địa cùng các vị Thần linh cai quản trong xứ này.
+
+Tín chủ con là: … Ngụ tại: …
+Hôm nay là ngày … tháng … năm …, tín chủ con thành tâm sửa biện hương hoa, lễ vật, trà quả, thắp nén hương thơm dâng lên trước án.
+
+Cúi xin các ngài chứng giám lòng thành, phù hộ cho gia đình chúng con và cả xóm được bình an, mạnh khoẻ, công việc hanh thông, tài lộc dồi dào, các con chăm ngoan.
+
+Chúng con lễ bạc tâm thành, cúi xin chứng giám.
+Nam mô A Di Đà Phật! (3 lần)`;
+function viewAltar(){
+  const L=toLunar(now),ents=altarToday(),lit=litFams(),myE=ents.find(e=>e.pid===S.me);
+  const spouseE=!myE&&ents.find(e=>person(e.pid)&&person(e.pid).fam.id===myFam().id);
+  const n1=findLunar(now,l=>l.d===1),n15=findLunar(now,l=>l.d===15),ntt=findLunar(now,l=>l.d===10&&l.m===1&&!l.leap);
+  const fests=[{n:'Mùng 1 tháng '+n1.l.m,x:n1},{n:'Rằm tháng '+n15.l.m,x:n15},{n:'Vía Thần Tài (mùng 10 tháng Giêng)',x:ntt}].filter(f=>f.x).sort((a,b)=>a.x.days-b.x.days);
+  const wishes=ents.filter(e=>e.wish&&(!e.priv||e.pid===S.me));
+  const litPeople=[...new Set(ents.map(e=>e.pid))].filter(person);
+  const noChibi=!(S.look&&S.look[S.me]);
+  const out=`<button class="back" data-act="tab" data-k="home">‹ Ra khỏi miếu</button>
+  <div><h1>Miếu Thần Tài</h1><p class="sub">Miếu chung của cả xóm. Ai thắp hương hôm nay sẽ đứng trong sân, bấm vào từng người để xem lời nguyện.</p></div>
+  ${sceneHTML()}
+  <div class="lunar"><div class="moon">${L.d}</div><div><b>${lunarName(L)} âm lịch</b><div class="meta">${fests[0].x.days===0?'Hôm nay là '+fests[0].n.toLowerCase():'Còn '+fests[0].x.days+' ngày đến '+fests[0].n.toLowerCase()}</div></div></div>
+  <section class="section">
+    ${myE?`<div class="note">🙏 ${esc(me().n)} đã thắp hương lúc ${hm(myE.t)}. Thành tâm là đủ, mai lại thắp tiếp nhé.</div>`
+      :`${spouseE?`<div class="note">${esc(person(spouseE.pid).n)} đã thắp cho nhà mình lúc ${hm(spouseE.t)}. ${esc(me().n)} vẫn có thể thắp thêm.</div>`:''}<button class="btn sun block" data-act="altar-open">Thắp hương</button>`}
+    ${noChibi?`<button class="btn ghost block" data-act="chibi">Tạo chibi giống ${esc(me().n)} hơn</button>`:''}
+    <div class="list"><div class="row"><span class="stack">${litPeople.slice(0,7).map(id=>pAv(id,true)).join('')}</span><div class="grow"><b>${lit.length}/${S.fams.length} nhà</b> <span class="meta">đã thắp hương hôm nay</span></div></div></div>
+  </section>
+  <section class="section"><h2>Lời nguyện hôm nay</h2>
+    <div class="list">${wishes.map(e=>`<div class="row">${pAv(e.pid,true)}<div class="grow"><div>${esc(e.wish)}</div><div class="meta">${esc(person(e.pid).n)} · ${hm(e.t)}${e.priv?' · chỉ mình bạn thấy':''}</div></div></div>`).join('')||'<div class="row"><span class="sub">Chưa có lời nguyện nào được chia sẻ.</span></div>'}</div>
+  </section>
+  <section class="section"><h2>Ngày lễ sắp tới</h2>
+    <div class="list">${fests.map(f=>{const d=f.x.date;return `<div class="row"><div class="date"><b>${d.getDate()}</b><small>th ${d.getMonth()+1}</small></div><div class="grow"><div class="name">${f.n}</div><div class="meta">${DOW[d.getDay()]} · ${f.x.days===0?'hôm nay':'còn '+f.x.days+' ngày'} · app nhắc tối hôm trước</div></div></div>`}).join('')}</div>
+  </section>
+  <section class="section"><details class="prayer"><summary>Văn khấn Thần Tài – Thổ Địa (tham khảo)</summary><p>${esc(PRAYER)}</p></details>
+  <p class="sub small">Xóm Mình chỉ là nơi kết nối tinh thần, không nhận bất kỳ khoản công đức hay tiền lễ nào.</p></section>`;
+  UI.enter=false;return out;
+}
+
+/* ---------- Trình tạo chibi ---------- */
+let ED={pid:null};
+function sheetChibi(pid){ED.pid=pid||S.me;sheet(`<h2>Chibi nhà mình</h2><p class="sub small">Chibi hiện trong miếu, danh sách điểm danh, kèo và chat.</p><div id="ed" style="display:flex;flex-direction:column;gap:14px"></div><button class="btn" data-act="close-btn">Xong</button>`);renderEd()}
+function renderEd(){
+  const host=document.getElementById('ed');if(!host)return;const sh=host.closest('.sheet'),top=sh.scrollTop;
+  const f=myFam(),pid=ED.pid,L=look(pid);
+  const sw=(k,arr)=>`<div class="opts">${arr.map(c=>`<button class="sw" data-act="ed-set" data-k="${k}" data-v="${c}" style="background:${c}" aria-pressed="${L[k]===c}" aria-label="Màu ${c}"></button>`).join('')}</div>`;
+  const ch=(k,opts)=>`<div class="chips">${opts.map(([v,t])=>`<button class="chip" data-act="ed-set" data-k="${k}" data-v="${v}" aria-pressed="${String(L[k])===v}">${t}</button>`).join('')}</div>`;
+  host.innerHTML=`<div class="chips">${f.members.map(m=>`<button class="chip" data-act="ed-who" data-p="${m.id}" aria-pressed="${m.id===pid}">${esc(m.role==='kid'?'Bé '+m.n:m.n)}</button>`).join('')}</div>
+  <div class="ed-preview"><div class="ch static idle" id="ed-pv">${chibiSVG(pid)}</div></div>
+  <div class="seg" style="margin-top:0"><button data-act="ed-mode" data-k="photo" aria-pressed="${L.mode==='photo'}">Dùng ảnh thật</button><button data-act="ed-mode" data-k="build" aria-pressed="${L.mode!=='photo'}">Tự tạo</button></div>
+  ${L.mode==='photo'?`
+    <label class="btn ghost" for="ed-file" style="display:flex;align-items:center;justify-content:center;cursor:pointer">${L.photo?'Đổi ảnh khác':'Chọn ảnh từ máy'}</label><input type="file" id="ed-file" accept="image/*" hidden>
+    ${L.photo?`<label class="f">Phóng to<input type="range" id="ed-zoom" min="1" max="3" step="0.05" value="${L.zoom}"></label>
+      <div class="two"><label class="f">Căn ngang<input type="range" id="ed-ox" min="-22" max="22" step="1" value="${L.ox}"></label><label class="f">Căn dọc<input type="range" id="ed-oy" min="-22" max="22" step="1" value="${L.oy}"></label></div>
+      <button class="link" style="align-self:flex-start" data-act="ed-clear">Bỏ ảnh, quay lại tự tạo</button>`:''}
+    <p class="sub small">Mẹo: ảnh chụp thẳng mặt, đủ sáng sẽ đẹp nhất. Ảnh chỉ người trong xóm nhìn thấy. Màu áo vẫn chỉnh được ở mục Tự tạo.</p>`
+  :`<div class="group-title">Kiểu tóc</div>
+    <div class="opts">${ALL_HAIR.map(hr=>`<button class="opt" data-act="ed-set" data-k="hair" data-v="${hr}" aria-pressed="${L.hair===hr}" aria-label="Tóc ${HAIR_NAMES[hr]}">${headSVG(pid,{mode:'build',hair:hr,glasses:false,acc:'none'})}</button>`).join('')}</div>
+    <div class="group-title">Màu tóc</div>${sw('hairC',HAIRC)}
+    <div class="group-title">Màu da</div>${sw('skin',SKIN)}
+    <div class="group-title">Màu áo</div>${sw('shirt',SHIRT)}
+    <div class="group-title">Kính</div>${ch('glasses',[['false','Không đeo'],['true','Đeo kính']])}
+    <div class="group-title">Phụ kiện</div>${ch('acc',[['none','Không'],['bow','Nơ'],['cap','Mũ lưỡi trai']])}`}`;
+  sh.scrollTop=top}
+
+/* ---------- Chat ---------- */
+function viewChat(){
+  const p=S.pin&&person(S.pin.pid);
+  return `<div><h1>Kênh chung</h1><p class="sub">${S.fams.length} gia đình · ${people().length} người</p></div>
+  ${p?`<div class="pin" style="margin-top:14px"><span aria-hidden="true">📌</span><div><b>Ghim bởi ${esc(p.n)}</b>${esc(S.pin.x)}</div></div>`:''}
+  <section class="section">${thread(S.chat.general)}</section>
+  ${composer('general','Nhắn cả xóm…')}`;
+}
+
+/* ---------- Xóm ---------- */
+function viewXom(){
+  const p=S.poll,votes=Object.values(p.votes),total=votes.length,mine=p.votes[S.me],evs=events(45);
+  const totalKids=S.fams.reduce((n,f)=>n+kids(f).length,0);
+  const fams=[...S.fams].sort((a,b)=>(b.id===myFam().id)-(a.id===myFam().id));
+  return `<div><h1>Cả xóm</h1><p class="sub">${S.fams.length} gia đình · ${people().length} người lớn · ${totalKids} bạn nhỏ</p></div>
+  <section class="section"><div class="section-head"><h2>Sắp tới</h2><span class="sub small">45 ngày tới</span></div>
+    <div class="list">${evs.map(evRow).join('')||'<div class="row"><span class="sub">Chưa có ngày đặc biệt nào sắp tới.</span></div>'}</div>
+  </section>
+  <section class="section card poll"><h2>${esc(p.q)}</h2><p class="sub small">${total} người đã bình chọn</p>
+    ${p.opts.map((o,i)=>{const n=votes.filter(v=>v===i).length,pc=total?Math.round(n/total*100):0;
+      return `<button data-act="vote" data-i="${i}" aria-pressed="${mine===i}"><span class="fill" style="width:${pc}%"></span><span class="lbl"><span>${esc(o)}</span><small>${n} người</small></span></button>`}).join('')}
+  </section>
+  <section class="section"><div class="section-head"><h2>Các gia đình</h2>${isAdmin()?'<button class="link" data-act="invite">+ Mời nhà mới</button>':''}</div>
+    <div class="fam-grid">${fams.map(f=>{const isMine=f.id===myFam().id,pend=adults(f).filter(m=>!m.claimed);
+      return `<div class="fam${isMine?' mine':''}"><div style="display:flex;align-items:center;gap:8px">${famAv(f,true)}<div class="name">${isMine?'Nhà mình':esc(famShort(f))}</div></div>
+      ${isMine?`<div class="meta">${esc(famShort(f))}</div>`:''}
+      <div class="meta">${kids(f).length?'Bé '+kids(f).map(k=>esc(k.n)).join(', bé '):'Chưa có bé'}</div>
+      ${pend.length?`<div class="pending">${pend.map(m=>esc(m.n)).join(', ')} chưa vào xóm${isAdmin()||isMine?` · <button data-act="show-link" data-f="${f.id}">Gửi lại link</button>`:''}</div>`:''}
+      <div class="tags">${S.gold[f.id]?`<span class="tag hot">Chủ nhà ${S.gold[f.id]}x</span>`:''}${S.busy[f.id]?'<span class="tag">Hay bận 😅</span>':''}</div>
+      ${isMine?'<button class="btn ghost" style="min-height:44px;font-size:15px" data-act="edit-fam">Sửa hồ sơ</button><button class="btn ghost" style="min-height:44px;font-size:15px" data-act="chibi">Chibi cả nhà</button>':''}</div>`}).join('')}</div>
+  </section>
+  <section class="section"><button class="btn ghost block" data-act="reset">Khôi phục dữ liệu mẫu</button></section>`;
+}
+
+/* ---------- Hồ sơ gia đình ---------- */
+let kidSeq=0;
+function kidRow(k){const id='kr'+(kidSeq++);return `<div class="kid-row" data-kid="${k?k.id:''}"><input aria-label="Tên bé" class="kn" placeholder="Tên bé" value="${esc(k?k.n:'')}" maxlength="30"><input aria-label="Ngày sinh của bé" class="kd" type="date" value="${esc(k?k.dob:'')}"><button type="button" data-act="del-kid" aria-label="Bỏ bé này">×</button></div>`}
+function famForm(f,submitLabel,owner){owner=owner||S.me;
+  const meP=adults(f).find(m=>m.id===owner)||adults(f)[0];
+  return `<form class="stackf" id="fam-form" data-f="${f.id}" data-owner="${meP.id}">
+    <div class="group-title">Hai vợ chồng</div>
+    ${adults(f).map(m=>`<div class="two"><label class="f">Tên${m.id===owner?' (bạn)':''}<input id="n-${m.id}" required maxlength="30" value="${esc(m.n)}"></label><label class="f">Ngày sinh<input id="d-${m.id}" type="date" value="${esc(m.dob)}"></label></div>`).join('')}
+    <label class="f">Số điện thoại của ${esc(meP.n)}<input id="phone" type="tel" inputmode="tel" maxlength="15" placeholder="09xx xxx xxx" value="${esc(meP.phone||'')}"></label>
+    <label class="check"><input id="phone-pub" type="checkbox" ${meP.phonePub?'checked':''}> Cho cả xóm thấy số điện thoại</label>
+    <label class="f">Ngày cưới<input id="wed" type="date" value="${esc(f.wed||'')}"></label>
+    <div class="group-title">Các bé</div>
+    <p class="sub small" style="margin:0">Các bé không cần tài khoản. Ngày sinh sẽ tự hiện ở mục "Sắp tới" để cả xóm nhớ chúc.</p>
+    <div id="kids" style="display:flex;flex-direction:column;gap:8px">${kids(f).map(kidRow).join('')}</div>
+    <button type="button" class="btn ghost" data-act="add-kid">+ Thêm bé</button>
+    <button class="btn" type="submit">${submitLabel}</button>
+  </form>`}
+function readFamForm(form){
+  const f=famById(form.dataset.f);
+  adults(f).forEach(m=>{m.n=form.querySelector('#n-'+m.id).value.trim()||m.n;m.dob=form.querySelector('#d-'+m.id).value});
+  const meP=adults(f).find(m=>m.id===form.dataset.owner)||adults(f)[0];
+  meP.phone=form.querySelector('#phone').value.trim();meP.phonePub=form.querySelector('#phone-pub').checked;
+  f.wed=form.querySelector('#wed').value;
+  const n=f.id.slice(1);let i=0;
+  const ks=[...form.querySelectorAll('.kid-row')].map(r=>({id:r.dataset.kid||('k'+n+'x'+Date.now()+(i++)),n:r.querySelector('.kn').value.trim(),role:'kid',dob:r.querySelector('.kd').value})).filter(k=>k.n);
+  f.members=adults(f).concat(ks);
+  f.ab=f.id==='f0'?f.ab:adults(f).map(m=>m.n.split(' ').pop()[0]).join('');
+  return f;
+}
+
+/* ---------- Màn nhận link mời ---------- */
+function viewClaim(){
+  const c=S.claim,f=famById(c.fid);if(!f){S.claim=null;return viewHome()}
+  const step={who:1,login:2,profile:3}[c.step];
+  const inviter=person(c.by||'a0');
+  const bar=`<div class="steps" aria-label="Bước ${step}/3">${[1,2,3].map(i=>`<i class="${i<=step?'on':''}"></i>`).join('')}</div>`;
+  if(c.step==='who')return `<div class="claim">${bar}
+    <div class="hello"><span class="demo-tag">Xem thử màn người được mời</span><h1>Chào nhà ${esc(famShort(f))}!</h1><p>${esc(inviter.n)} mời cả nhà vào <b>Xóm Mình</b>, nơi ${S.fams.length-1} gia đình bạn bè rủ nhau cafe, ăn uống và chia sẻ chuyện nhà.</p></div>
+    <h2>Anh/chị là ai?</h2>
+    ${adults(f).map(m=>`<button class="pick" data-act="claim-who" data-p="${m.id}" ${m.claimed?'disabled':''}>${pAvRaw(f,m)}<span>${esc(m.n)}<small>${m.claimed?'Đã vào xóm':'Bấm để nhận tên này'}</small></span></button>`).join('')}
+    <p class="sub small">Không thấy tên mình hoặc tên bị sai? Cứ chọn gần đúng nhất, bước sau sửa được.</p>
+    <button class="link" data-act="claim-exit">Thoát xem thử</button></div>`;
+  const m=f.members.find(x=>x.id===c.pid);
+  if(c.step==='login')return `<div class="claim">${bar}
+    <h1>Chào ${esc(m.n)} 👋</h1><p class="sub">Đăng nhập một lần để lần sau mở app là vào thẳng, không cần link nữa.</p>
+    <button class="gbtn" data-act="claim-login"><i>G</i>Tiếp tục với Google</button>
+    <p class="sub small">Bản demo chỉ mô phỏng bước này. Bản thật sẽ đăng nhập Google trước, sau đó thêm đăng nhập bằng số điện thoại.</p>
+    <button class="link" data-act="claim-back">‹ Chọn lại người</button></div>`;
+  return `<div class="claim">${bar}
+    <h1>Hồ sơ nhà ${esc(famShort(f))}</h1><p class="sub">${esc(inviter.n)} đã điền sẵn những gì biết. ${esc(m.n)} kiểm tra lại và bổ sung giúp nhé. Vợ hoặc chồng đều sửa được.</p>
+    ${famForm(f,'Vào xóm 🎉',c.pid)}</div>`;
+}
+function pAvRaw(f,m){return pAv(m.id)}
+
+/* ---------- Render ---------- */
+function render(){
+  renderChrome();
+  let html;
+  if(S.claim)html=viewClaim();
+  else if(S.tab==='keo'&&S.detail)html=viewDetail();
+  else html=({home:viewHome,keo:viewKeo,altar:viewAltar,chat:viewChat,xom:viewXom}[S.tab]||viewHome)();
+  const pv=document.getElementById('scene-scroll'),pl=pv?pv.scrollLeft:null;
+  document.getElementById('view').innerHTML=html;
+  const sv=document.getElementById('scene-scroll');
+  if(sv){sv.scrollLeft=(pl!=null&&!UI.center)?pl:(sv.scrollWidth-sv.clientWidth)/2;UI.center=false;startChatter()}
+  if(UI.scrollChat){UI.scrollChat=false;requestAnimationFrame(()=>{const c=document.getElementById('chat-form');if(c)window.scrollTo(0,document.body.scrollHeight)})}
+}
+
+/* ---------- Sheets ---------- */
+function sheet(html){const L=document.getElementById('layer');
+  L.innerHTML=`<div class="scrim" data-act="close"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
+  const f=L.querySelector('input,textarea,button');f&&f.focus()}
+const closeSheet=()=>{document.getElementById('layer').innerHTML=''};
+const isoLocal=t=>{const d=new Date(t);return new Date(d-d.getTimezoneOffset()*60000).toISOString().slice(0,16)};
+function sheetKeo(){
+  sheet(`<h2>Rủ một kèo mới</h2>
+  <form id="keo-form" class="stackf">
+    <div class="chips" role="radiogroup" aria-label="Loại kèo" id="ktypes">${TYPES.map((t,i)=>`<button type="button" class="chip" data-act="ktype" data-k="${t.k}" aria-pressed="${i===0}">${t.e} ${t.t}</button>`).join('')}</div>
+    <label class="f">Tên kèo<input id="k-title" required maxlength="60" placeholder="VD: Cafe sáng chủ nhật"></label>
+    <div class="two"><label class="f">Khi nào<input id="k-when" type="datetime-local" required value="${isoLocal(at(1,19,0))}"></label>
+    <label class="f">Tối thiểu<select id="k-min">${[2,3,4,5,6,8].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n} người</option>`).join('')}</select></label></div>
+    <label class="f">Ở đâu<input id="k-place" required maxlength="80" placeholder="Tên quán hoặc địa chỉ"></label>
+    <div class="two"><button type="button" class="btn ghost" data-act="close-btn">Huỷ</button><button class="btn" type="submit">Đăng kèo</button></div>
+  </form>`)}
+function sheetHost(){
+  sheet(`<h2>Nhà mình đăng cai</h2>
+  <form id="host-form" class="stackf">
+    <label class="f">Buổi gì<input id="h-title" required maxlength="60" placeholder="VD: Bánh xèo tại gia"></label>
+    <label class="f">Khi nào<input id="h-when" type="datetime-local" required value="${isoLocal(at(20,18,0))}"></label>
+    <label class="f">Lời nhắn cho cả xóm<textarea id="h-note" rows="3" maxlength="200" placeholder="VD: Mỗi nhà mang một món nhé"></textarea></label>
+    <div class="two"><button type="button" class="btn ghost" data-act="close-btn">Huỷ</button><button class="btn sun" type="submit">Xung phong</button></div>
+  </form>`)}
+function sheetMe(){
+  sheet(`<button class="btn ghost" data-act="chibi">Sửa chibi của ${esc(me().n)}</button><h2>Xem với tư cách</h2><p class="sub small">Trong bản demo, chọn một người để thử trải nghiệm của họ.</p>
+  <div class="list">${S.fams.map(f=>`<div class="row" style="flex-wrap:wrap">${famAv(f,true)}<div class="grow name">${esc('Nhà '+famShort(f))}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${adults(f).filter(m=>m.claimed).map(m=>`<button class="chip" data-act="set-me" data-id="${m.id}" aria-pressed="${m.id===S.me}">${esc(m.n)}</button>`).join('')}</div></div>`).join('')}</div>`)}
+function sheetAltar(){
+  sheet(`<h2>Thắp hương</h2><p class="sub small">Nén hương của ${esc(me().n)} sẽ cắm lên ban thờ chung của xóm.</p>
+  <form id="altar-form" class="stackf">
+    <div><div class="group-title" style="margin-bottom:8px">Dâng lễ</div>
+    <div class="chips" id="offers">${OFFER.map((o,i)=>`<button type="button" class="chip" data-act="offer" data-k="${o.k}" aria-pressed="${i<2}">${o.t}</button>`).join('')}</div></div>
+    <label class="f">Lời nguyện (không bắt buộc)<textarea id="a-wish" rows="3" maxlength="200" placeholder="VD: Cầu cho cả nhà mạnh khoẻ, công việc thuận lợi"></textarea></label>
+    <label class="check"><input id="a-priv" type="checkbox"> Chỉ mình tôi thấy lời nguyện này</label>
+    <button class="btn sun" type="submit">🙏 Thắp hương</button>
+  </form>`)}
+function sheetInvite(){
+  sheet(`<h2>Mời một gia đình mới</h2><p class="sub small">Điền những gì bạn biết. Vợ chồng nhà đó sẽ tự sửa và bổ sung khi vào bằng link.</p>
+  <form id="invite-form" class="stackf">
+    <div class="two"><label class="f">Tên chồng<input id="i-a" required maxlength="30" placeholder="VD: Tùng"></label><label class="f">Tên vợ<input id="i-b" required maxlength="30" placeholder="VD: Hạnh"></label></div>
+    <label class="f">Tên các bé, cách nhau bằng dấu phẩy<input id="i-k" maxlength="80" placeholder="VD: Bơ, Sữa"></label>
+    <div class="two"><button type="button" class="btn ghost" data-act="close-btn">Huỷ</button><button class="btn" type="submit">Tạo link mời</button></div>
+  </form>`)}
+function sheetLink(fid){
+  const f=famById(fid),url='xom-minh.app/moi/'+f.invite;
+  const msg=`Mời nhà ${famShort(f)} vào Xóm Mình của hội mình nhé! Bấm link, chọn tên mình là xong: ${url}`;
+  sheet(`<h2>Link mời nhà ${esc(famShort(f))}</h2>
+  <p class="sub small">Link riêng cho nhà này, dùng được cho 2 người lớn, hết hạn sau 7 ngày. Gửi vào Zalo của vợ hoặc chồng nhà đó.</p>
+  <div class="linkbox" id="msg-text">${esc(msg)}</div>
+  <button class="btn" data-act="copy-link" data-msg="${esc(msg)}">Sao chép lời mời</button>
+  <button class="btn ghost" data-act="preview-claim" data-f="${f.id}">Xem thử màn hình nhà đó nhận được</button>
+  <p class="sub small">Địa chỉ link trong bản demo là ví dụ, chưa mở được.</p>`)}
+function sheetFam(){sheet(`<h2>Hồ sơ nhà mình</h2>${famForm(myFam(),'Lưu hồ sơ')}`)}
+
+/* ---------- Sự kiện ---------- */
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const a=b.dataset.act;
+  if(a==='close'&&e.target!==b)return;
+  switch(a){
+    case 'tab':S.tab=b.dataset.k;S.detail=null;UI.confirmCancel=false;if(S.tab==='chat')UI.scrollChat=true;save();render();if(S.tab!=='chat')scrollTo(0,0);break;
+    case 'enter-temple':S.tab='altar';S.detail=null;UI.enter=true;save();render();scrollTo(0,0);break;
+    case 'char':{const p=person(b.dataset.p);if(!p)break;const e=altarToday().find(x=>x.pid===b.dataset.p);let txt;
+      if(p.role==='kid')txt='Bé '+p.n+' đi lễ cùng bố mẹ';else if(e&&e.wish&&(!e.priv||e.pid===S.me))txt=p.n+': "'+e.wish+'"';else txt=p.n+(e?' đã thắp hương lúc '+hm(e.t):'');
+      showSay(b,txt);break}
+    case 'chibi':closeSheet();sheetChibi(S.me);break;
+    case 'ed-who':ED.pid=b.dataset.p;renderEd();break;
+    case 'ed-mode':setLook(ED.pid,{mode:b.dataset.k});save();renderEd();render();break;
+    case 'ed-clear':setLook(ED.pid,{mode:'build',photo:''});save();renderEd();render();break;
+    case 'ed-set':{const k=b.dataset.k;let v=b.dataset.v;if(k==='glasses')v=v==='true';setLook(ED.pid,{[k]:v,mode:k==='shirt'?look(ED.pid).mode:'build'});save();renderEd();render();break}
+    case 'pan':{const sv=document.getElementById('scene-scroll');if(sv)sv.scrollTo({left:b.dataset.x==='0'?0:sv.scrollWidth,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});break}
+    case 'npc':if(b.dataset.k==='tu')sheetXam();else sheetThay('van');break;
+    case 'xam-demo':UI.xam.demo=true;UI.xam.step='ask';renderXam();break;
+    case 'xam-topic':UI.xam.topic=b.dataset.k;renderXam();break;
+    case 'xam-shake':UI.xam.step='shake';renderXam();setTimeout(()=>{if(!UI.xam||UI.xam.step!=='shake')return;UI.xam.n=1+Math.floor(Math.random()*XAM.length);UI.xam.step='fell';renderXam()},1900);break;
+    case 'xam-keo':{const X=UI.xam;X.step='keo';X.keo='flip';renderXam();setTimeout(()=>{if(UI.xam!==X)return;X.tries++;const r=Math.random();X.keo=X.tries>=3||r<.5?'ok':r<.75?'cuoi':'am';renderXam()},1100);break}
+    case 'xam-read':{const X=UI.xam;X.step='result';S.xam=S.xam||{};S.xam[S.me]={date:today,n:X.n,topic:X.topic,demo:!!X.demo};save();renderXam();break}
+    case 'xam-share':{const X=UI.xam,q=XAM[X.n-1];post('general',{sys:1,x:me().n+' vừa xin được quẻ số '+X.n+' · '+LV[q[0]]+' 🎋 "'+q[1][0]+'…"'});X.shared=true;if(S.xam&&S.xam[S.me])S.xam[S.me].shared=true;save();renderXam();render();toast('Đã khoe quẻ lên kênh chung');break}
+    case 'thay-tab':UI.thay.tab=b.dataset.k;UI.thay.shown=false;renderThay();break;
+    case 'thay-tuoi':UI.thay.a=document.getElementById('ty-a').value;UI.thay.b=document.getElementById('ty-b').value;UI.thay.shown=true;renderThay();break;
+    case 'thay-keo':{const k=S.keo.find(x=>x.id===b.dataset.id);UI.thay.keo=k.id;UI.thay.date=dayKey(k.when);renderThay();break}
+    case 'thay-from-keo':sheetThay('ngay',b.dataset.id);break;
+    case 'thay-share':{const L=UI.thay.lastTuoi;if(L){post('general',{sys:1,x:'Thầy Lộc phán: '+L.a+' & '+L.b+' '+L.r.c+', mệnh '+L.r.m+'. '+L.r.v});save();render();toast('Đã khoe lên kênh chung')}break}
+    case 'seg':S.sub=b.dataset.k;save();render();break;
+    case 'open-keo':S.tab='keo';S.detail=b.dataset.id;UI.confirmCancel=false;save();render();scrollTo(0,0);break;
+    case 'back':S.detail=null;UI.confirmCancel=false;save();render();break;
+    case 'check-open':UI.checkOpen=true;render();break;
+    case 'checkin':{const first=!S.checkins[S.me];S.checkins[S.me]={s:b.dataset.k,t:Date.now()};UI.checkOpen=false;
+      if(first){S.streak[S.me]=(S.streak[S.me]||0)+1;toast('Điểm danh xong! Chuỗi '+S.streak[S.me]+' ngày 🔥')}else toast('Đã đổi trạng thái');save();render();break}
+    case 'poke':toast('Đã ới '+people().filter(p=>!S.checkins[p.id]).length+' người chưa điểm danh');break;
+    case 'rsvp':{const k=S.keo.find(x=>x.id===b.dataset.id),before=yesOf(k.rsvp).length>=k.min;
+      if(k.rsvp[S.me]===b.dataset.v)delete k.rsvp[S.me];else k.rsvp[S.me]=b.dataset.v;
+      const after=yesOf(k.rsvp).length>=k.min;if(!before&&after)post('general',{sys:1,x:'Kèo "'+k.title+'" đã đủ người, chốt kèo! 🔥'});
+      save();render();if(!before&&after)toast('Đủ người rồi, chốt kèo "'+k.title+'"!');break}
+    case 'cancel-ask':UI.confirmCancel=true;render();break;
+    case 'cancel-no':UI.confirmCancel=false;render();break;
+    case 'cancel-yes':{const k=S.keo.find(x=>x.id===b.dataset.id);S.keo=S.keo.filter(x=>x!==k);post('general',{sys:1,x:me().n+' đã huỷ kèo "'+k.title+'"'});S.detail=null;UI.confirmCancel=false;save();render();toast('Đã huỷ kèo và báo cho cả xóm');break}
+    case 'hrsvp':{const h=S.hosts.find(x=>x.id===b.dataset.id);if(h.rsvp[S.me]===b.dataset.v)delete h.rsvp[S.me];else h.rsvp[S.me]=b.dataset.v;save();render();break}
+    case 'volunteer':{const h=S.hosts.find(x=>x.id===b.dataset.id),f=myFam();h.fid=f.id;h.rsvp={};adults(f).forEach(m=>{if(m.claimed)h.rsvp[m.id]='yes'});
+      h.note=h.note||'Nhà mình nhận đăng cai, mọi người đến chung vui nhé!';S.gold[f.id]=(S.gold[f.id]||0)+1;
+      post('general',{sys:1,x:'Nhà '+famShort(f)+' xung phong đăng cai "'+h.title+'" 🏡'});save();render();toast('Cảm ơn nhà mình đã xung phong!');break}
+    case 'unhost':{const h=S.hosts.find(x=>x.id===b.dataset.id),f=myFam();h.fid=null;h.rsvp={};h.note='';S.gold[f.id]=Math.max(0,(S.gold[f.id]||1)-1);if(!S.gold[f.id])delete S.gold[f.id];save();render();toast('Đã mở lại cho nhà khác xung phong');break}
+    case 'vote':{const i=+b.dataset.i;if(S.poll.votes[S.me]===i)delete S.poll.votes[S.me];else S.poll.votes[S.me]=i;save();render();break}
+    case 'wish':{post('general',{pid:S.me,x:'Chúc mừng '+b.dataset.t.split(' · ')[0].replace('Sinh nhật','sinh nhật').replace('Kỷ niệm','kỷ niệm').replace('Thôi nôi','thôi nôi')+' nhà '+famShort(famById(b.dataset.f))+'! 🎉'});save();render();toast('Đã gửi lời chúc vào kênh chung');break}
+    case 'new-keo':sheetKeo();break;
+    case 'new-host':sheetHost();break;
+    case 'pick-me':sheetMe();break;
+    case 'set-me':S.me=b.dataset.id;UI.checkOpen=false;save();closeSheet();render();toast('Đang xem với tư cách '+me().n);break;
+    case 'ktype':document.querySelectorAll('#ktypes .chip').forEach(c=>c.setAttribute('aria-pressed',c===b));break;
+    case 'offer':b.setAttribute('aria-pressed',b.getAttribute('aria-pressed')!=='true');break;
+    case 'altar-open':sheetAltar();break;
+    case 'invite':sheetInvite();break;
+    case 'show-link':sheetLink(b.dataset.f);break;
+    case 'copy-link':{const msg=b.dataset.msg;const done=()=>toast('Đã sao chép, dán vào Zalo là xong');
+      try{navigator.clipboard.writeText(msg).then(done,()=>{selectMsg();toast('Bôi đen sẵn rồi, bấm giữ để sao chép')})}catch(err){selectMsg();toast('Bôi đen sẵn rồi, bấm giữ để sao chép')}break}
+    case 'preview-claim':S.claim={fid:b.dataset.f,step:'who',by:S.me};closeSheet();save();render();scrollTo(0,0);break;
+    case 'claim-who':S.claim.pid=b.dataset.p;S.claim.step='login';save();render();break;
+    case 'claim-login':S.claim.step='profile';save();render();scrollTo(0,0);break;
+    case 'claim-back':S.claim.step='who';save();render();break;
+    case 'claim-exit':S.claim=null;save();render();break;
+    case 'edit-fam':sheetFam();break;
+    case 'add-kid':document.getElementById('kids').insertAdjacentHTML('beforeend',kidRow(null));document.querySelector('#kids .kid-row:last-child .kn').focus();break;
+    case 'del-kid':b.closest('.kid-row').remove();break;
+    case 'close':case 'close-btn':closeSheet();break;
+    case 'reset':S=seed();UI={checkOpen:false,confirmCancel:false};save();render();scrollTo(0,0);toast('Đã khôi phục dữ liệu mẫu');break;
+  }
+});
+function selectMsg(){const el=document.getElementById('msg-text');if(!el)return;const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r)}
+
+document.addEventListener('submit',e=>{
+  e.preventDefault();const F=e.target,v=id=>F.querySelector('#'+id).value.trim();
+  switch(F.id){
+    case 'keo-form':{const type=(document.querySelector('#ktypes .chip[aria-pressed="true"]')||{dataset:{k:'cafe'}}).dataset.k;
+      const k={id:'k'+Date.now(),type,title:v('k-title'),when:new Date(v('k-when')).getTime(),place:v('k-place'),min:+v('k-min'),host:S.me,rsvp:{[S.me]:'yes'}};
+      S.keo.push(k);post('general',{sys:1,x:me().n+' vừa rủ kèo '+ty(type).e+' '+k.title});
+      S.tab='keo';S.sub='keo';S.detail=k.id;save();closeSheet();render();scrollTo(0,0);toast('Đã đăng kèo, chờ cả xóm hưởng ứng!');break}
+    case 'host-form':{const f=myFam(),h={id:'h'+Date.now(),title:v('h-title'),when:new Date(v('h-when')).getTime(),fid:f.id,note:v('h-note'),rsvp:{}};
+      adults(f).forEach(m=>{if(m.claimed)h.rsvp[m.id]='yes'});S.hosts.push(h);S.gold[f.id]=(S.gold[f.id]||0)+1;
+      post('general',{sys:1,x:'Nhà '+famShort(f)+' xung phong đăng cai "'+h.title+'" 🏡'});save();closeSheet();render();toast('Đã đăng buổi mới, nhà mình làm chủ nhà!');break}
+    case 'chat-form':{const x=v('chat-in');if(!x)return;post(F.dataset.ch,{pid:S.me,x});UI.scrollChat=true;save();render();const i=document.getElementById('chat-in');i&&i.focus();break}
+    case 'altar-form':{const off=[...document.querySelectorAll('#offers .chip[aria-pressed="true"]')].map(c=>c.dataset.k);
+      (S.altar[today]=S.altar[today]||[]).push({pid:S.me,t:Date.now(),off,wish:v('a-wish'),priv:F.querySelector('#a-priv').checked});
+      save();closeSheet();playLight();break}
+    case 'invite-form':{const n=S.fams.length;let id='f'+n;while(famById(id))id+='x';
+      const A=v('i-a'),B=v('i-b'),ks=v('i-k').split(',').map(s=>s.trim()).filter(Boolean);
+      const f={id,h:(n*67)%360,ab:(A[0]||'')+(B[0]||''),wed:'',invite:code(),members:[
+        {id:'a'+id.slice(1),n:A,role:'adult',dob:'',claimed:false,phone:'',phonePub:false},
+        {id:'b'+id.slice(1),n:B,role:'adult',dob:'',claimed:false,phone:'',phonePub:false},
+        ...ks.map((k,i)=>({id:'k'+id.slice(1)+i,n:k,role:'kid',dob:''}))]};
+      S.fams.push(f);save();render();sheetLink(f.id);break}
+    case 'fam-form':{
+      if(S.claim){const c=S.claim;S.me=c.pid;const f=readFamForm(F);const m=f.members.find(x=>x.id===c.pid);m.claimed=true;
+        post('general',{sys:1,x:m.n+' (nhà '+famShort(f)+') vừa vào xóm 👋'});S.claim=null;S.tab='home';S.detail=null;save();render();scrollTo(0,0);toast('Chào mừng '+m.n+' đến với Xóm Mình!');
+      }else{readFamForm(F);save();closeSheet();render();toast('Đã lưu hồ sơ nhà mình')}
+      break}
+  }
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet()});
+const RANGE={'ed-zoom':'zoom','ed-ox':'ox','ed-oy':'oy'};
+document.addEventListener('input',e=>{const k=RANGE[e.target.id];if(!k)return;setLook(ED.pid,{[k]:+e.target.value});const pv=document.getElementById('ed-pv');if(pv)pv.innerHTML=chibiSVG(ED.pid)});
+document.addEventListener('change',e=>{
+  if(RANGE[e.target.id]){save();render();return}
+  if(e.target.id==='td-date'&&e.target.value){UI.thay.date=e.target.value;UI.thay.keo=null;renderThay();return}
+  if(e.target.id!=='ed-file')return;const file=e.target.files&&e.target.files[0];if(!file)return;
+  const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const mx=320,sc=Math.min(1,mx/Math.max(img.width,img.height)),c=document.createElement('canvas');
+    c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    const prev=(S.look||{})[ED.pid];setLook(ED.pid,{mode:'photo',photo:c.toDataURL('image/jpeg',.82),zoom:1.25,ox:0,oy:0});
+    if(!save()){S.look[ED.pid]=prev;toast('Ảnh lớn quá, thử ảnh khác nhé')}renderEd();render()};
+    img.onerror=()=>toast('Không đọc được ảnh này, thử ảnh khác nhé');img.src=r.result};r.readAsDataURL(file)});
+render();
+})();
+</script>
+</body></html>
