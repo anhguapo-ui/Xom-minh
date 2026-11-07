@@ -56,7 +56,7 @@ async function fetchLive(xomId: string, meId: string): Promise<Live> {
   }
 }
 
-const TABLES = ['photos', 'photo_likes', 'help_posts', 'help_responses', 'altar_offerings', 'checkins', 'keos', 'keo_rsvps', 'hosts', 'host_rsvps', 'messages', 'polls', 'poll_votes']
+const TABLES = ['join_requests', 'photos', 'photo_likes', 'help_posts', 'help_responses', 'altar_offerings', 'checkins', 'keos', 'keo_rsvps', 'hosts', 'host_rsvps', 'messages', 'polls', 'poll_votes']
 
 // Dữ liệu hoạt động của xóm, tự cập nhật khi có thay đổi (Supabase Realtime)
 export function useLive(xomId: string, meId: string, onError: (e: unknown) => void) {

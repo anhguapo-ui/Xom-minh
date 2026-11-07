@@ -10,6 +10,7 @@ import { toLunar, findLunar, lunarName } from './lunar'
 import { GateCard, Temple } from './Temple'
 import { AlbumTab, OnThisDay } from './Album'
 import { HelpTab } from './Help'
+import { JoinAdmin } from './JoinAdmin'
 import { NotifyCard, NotifyToggle } from './Install'
 import { disablePush } from './push'
 import { type Ctx, CheckinCard, FreeList, KeoCard, KeoDetail, NewKeoSheet, Hosts, NewHostSheet, ChatTab, PinSheet, PollCard, NewPollSheet, UpcomingKeos, postWish } from './Activity'
@@ -201,6 +202,7 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
       <div className="list">{evs.length ? evs.map(evRow) : <div className="row"><span className="sub">Chưa có ngày đặc biệt nào. Điền ngày sinh trong hồ sơ để cả xóm nhớ chúc nhé.</span></div>}</div>
     </section>
     <PollCard c={c} create={() => setSheet({ k: 'poll' })} />
+    {me.is_admin && <JoinAdmin c={c} reloadXom={reload} />}
     <section className="section"><div className="section-head"><h2>Các gia đình</h2>{me.is_admin && <button className="link" onClick={() => setSheet({ k: 'invite' })}>+ Mời nhà mới</button>}</div>
       <div className="fam-grid">{[...d.families].sort((a, b) => Number(b.id === myFam.id) - Number(a.id === myFam.id)).map(f => {
         const mine = f.id === myFam.id, pend = adultsOf(d, f).filter(m => !m.user_id), kids = kidsOf(d, f)

@@ -20,6 +20,7 @@ Dán lần lượt vào Supabase → SQL Editor → Run:
 2. `supabase/migrations/0002_link_rieng.sql`
 3. `supabase/chay_mot_lan_gd2_gd3_gd4.sql` (gộp sẵn 0003, 0004, 0005)
 4. `supabase/migrations/0006_album_tuong_tro_ai.sql`
+5. `supabase/migrations/0007_link_chung.sql`
 
 Mọi quyền đọc/ghi do RLS quyết định: người ngoài xóm không xem được gì.
 

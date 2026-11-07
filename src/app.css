@@ -33,3 +33,9 @@ nav.tabs .in{grid-template-columns:repeat(4,1fr)}
 .sheet-title{font-weight:700;color:var(--muted);font-size:14px;flex:1;min-width:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ai-result{display:flex;flex-direction:column;align-items:center;gap:8px;font-weight:700}
 .ai-result img{width:160px;height:160px;border-radius:50%;object-fit:cover;border:4px solid var(--surface);box-shadow:var(--shadow)}
+.dots i{font-style:normal;animation:blink 1.2s infinite;opacity:.2}
+.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
+@keyframes blink{50%{opacity:1}}
+.npc-face.thinking svg{animation:think .5s ease-in-out infinite alternate}
+@keyframes think{to{transform:rotate(-6deg) translateY(-1px)}}
+.npc-face.thinking .fan{animation-duration:.35s}

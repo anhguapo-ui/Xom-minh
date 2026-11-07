@@ -219,6 +219,7 @@ function ThaySheet({ c, onClose }: { c: Ctx; onClose: () => void }) {
   const spouse = adultsOf(c.d, c.myFam).find(m => m.id !== c.me.id)
   const [tab, setTab] = useState<'van' | 'tuoi' | 'ngay' | 'hoi'>('van')
   const [a, setA] = useState(c.me.id), [b, setB] = useState(spouse?.id || ''), [shown, setShown] = useState(false)
+  const [ownA, setOwnA] = useState({ name: '', year: '' }), [ownB, setOwnB] = useState({ name: '', year: '' })
   const [keoId, setKeoId] = useState<string | null>(null), [date, setDate] = useState(dayKey())
   const tabs = <div className="seg seg4" role="group" aria-label="Chọn việc nhờ thầy">{([['hoi', 'Hỏi thầy'], ['van', 'Vận'], ['tuoi', 'Tuổi'], ['ngay', 'Ngày']] as const).map(([k, t]) =>
     <button key={k} aria-pressed={tab === k} onClick={() => { setTab(k); setShown(false) }}>{t}</button>)}</div>
@@ -235,21 +236,30 @@ function ThaySheet({ c, onClose }: { c: Ctx; onClose: () => void }) {
             <dt>Nên</dt><dd>{NEN[(hs >> 7) % NEN.length]}</dd><dt>Tránh</dt><dd>{TRANH[(hs >> 9) % TRANH.length]}</dd></dl>
           <p className="lx-note">Thầy phán cho vui, tham khảo thôi nhé. Mai xem lại sẽ khác.</p></div></> }
   } else if (tab === 'tuoi') {
-    const ppl = c.d.members.filter(m => m.dob && (m.role === 'kid' || m.user_id))
-    const opt = ppl.map(p => <option key={p.id} value={p.id}>{p.role === 'kid' ? 'Bé ' + p.name : p.name}</option>)
-    const pa = c.d.members.find(m => m.id === a), pb = c.d.members.find(m => m.id === b), ta = pa && tuoi(pa.dob), tb = pb && tuoi(pb.dob)
-    const r = shown && ta && tb && a !== b ? relate(ta, tb) : null
-    body = <><NpcHead k="thay" name="Thầy Lộc" line="Chọn hai người, thầy xem có hợp tuổi không. Vợ chồng, bạn nhậu hay thông gia tương lai đều được!" />{tabs}
-      {ppl.length < 2 ? <p className="sub small">Cần ít nhất 2 người đã điền ngày sinh trong hồ sơ.</p> : <>
-        <div className="two"><label className="f">Người thứ nhất<select value={a} onChange={e => { setA(e.target.value); setShown(false) }}><option value="">Chọn…</option>{opt}</select></label>
-          <label className="f">Người thứ hai<select value={b} onChange={e => { setB(e.target.value); setShown(false) }}><option value="">Chọn…</option>{opt}</select></label></div>
-        <button className="btn" onClick={() => setShown(true)}>Nhờ thầy xem</button>
-        {shown && !r && <p className="sub small">Chọn hai người khác nhau, đã có ngày sinh nhé.</p>}
-        {r && pa && pb && ta && tb && <><div className="lx"><div className="lx-h"><span>{pa.name} & {pb.name}</span><b>{r.s >= 2 ? 'Hợp' : r.s >= 0 ? 'Bình hoà' : 'Hơi khắc'}</b></div>
-          <dl><dt>{pa.name}</dt><dd>{ta.can} {ta.chi} · mệnh {ta.menh}</dd><dt>{pb.name}</dt><dd>{tb.can} {tb.chi} · mệnh {tb.menh}</dd><dt>Địa chi</dt><dd>{r.c}</dd><dt>Ngũ hành</dt><dd>{r.m}</dd></dl>
-          <p className="lx-say">“{r.v}”</p><p className="lx-note">Xem tuổi cho vui, tình cảm là do mình vun đắp.</p></div>
-          <button className="btn ghost" onClick={async () => { const x = await sb.from('messages').insert({ xom_id: c.d.xom.id, member_id: c.me.id, body: `🔮 Thầy Lộc phán: ${pa.name} & ${pb.name} ${r.c}, mệnh ${r.m}. ${r.v}` }); if (x.error) toast(errText(x.error)); else { toast('Đã khoe lên kênh chung'); c.reload() } }}>Khoe lên kênh chung</button></>}
-      </>}</>
+    // Chỉ người trong nhà mình (vợ chồng, các con), hoặc tự điền tên + năm sinh của bất kỳ ai
+    const fam = c.d.members.filter(m => m.family_id === c.myFam.id && m.dob)
+    const pick = (id: string, own: { name: string; year: string }) => {
+      if (id === 'tu') { const y = parseInt(own.year, 10); return own.name.trim() && y > 1900 && y < 2100 ? { name: own.name.trim(), t: tuoi(y + '-06-15') } : null }
+      const m = fam.find(x => x.id === id); return m ? { name: m.name, t: tuoi(m.dob) } : null
+    }
+    const pa = pick(a, ownA), pb = pick(b, ownB)
+    const r = shown && pa?.t && pb?.t && !(a === b && a !== 'tu') ? relate(pa.t, pb.t) : null
+    const sel = (v: string, set: (s: string) => void, own: { name: string; year: string }, setOwn: (o: { name: string; year: string }) => void, label: string) => <div className="stackf" style={{ gap: 8 }}>
+      <label className="f">{label}<select value={v} onChange={e => { set(e.target.value); setShown(false) }}><option value="">Chọn…</option>
+        {fam.map(p => <option key={p.id} value={p.id}>{p.role === 'kid' ? 'Bé ' + p.name : p.name}</option>)}<option value="tu">✍️ Tự điền…</option></select></label>
+      {v === 'tu' && <div className="two"><label className="f">Tên<input maxLength={30} value={own.name} onChange={e => { setOwn({ ...own, name: e.target.value }); setShown(false) }} placeholder="VD: Sếp Tâm" /></label>
+        <label className="f">Năm sinh<input type="number" inputMode="numeric" min={1920} max={2099} value={own.year} onChange={e => { setOwn({ ...own, year: e.target.value }); setShown(false) }} placeholder="VD: 1988" /></label></div>}
+    </div>
+    body = <><NpcHead k="thay" name="Thầy Lộc" line="Chọn người trong nhà, hoặc tự điền tên và năm sinh của ai đó (sếp, thông gia tương lai…), thầy xem có hợp tuổi không!" />{tabs}
+      {sel(a, setA, ownA, setOwnA, 'Người thứ nhất')}
+      {sel(b, setB, ownB, setOwnB, 'Người thứ hai')}
+      <p className="sub small" style={{ margin: 0 }}>Sinh vào tháng 1 hoặc đầu tháng 2 trước Tết thì điền năm trước nhé (tuổi âm đổi vào Tết). Thông tin tự điền chỉ để xem, không lưu lại.</p>
+      <button className="btn" onClick={() => setShown(true)}>Nhờ thầy xem</button>
+      {shown && !r && <p className="sub small">Chọn đủ hai người (người trong nhà cần có ngày sinh trong hồ sơ, người tự điền cần tên và năm sinh) nhé.</p>}
+      {r && pa?.t && pb?.t && <><div className="lx"><div className="lx-h"><span>{pa.name} & {pb.name}</span><b>{r.s >= 2 ? 'Hợp' : r.s >= 0 ? 'Bình hoà' : 'Hơi khắc'}</b></div>
+        <dl><dt>{pa.name}</dt><dd>{pa.t.can} {pa.t.chi} · mệnh {pa.t.menh}</dd><dt>{pb.name}</dt><dd>{pb.t.can} {pb.t.chi} · mệnh {pb.t.menh}</dd><dt>Địa chi</dt><dd>{r.c}</dd><dt>Ngũ hành</dt><dd>{r.m}</dd></dl>
+        <p className="lx-say">“{r.v}”</p><p className="lx-note">Xem tuổi cho vui, tình cảm là do mình vun đắp.</p></div></>}
+    </>
   } else {
     const [y, mo, dd] = date.split('-').map(Number), dt = new Date(y, mo - 1, dd, 12), I = dayInfo(dt), k = keoId ? c.live.keos.find(x => x.id === keoId) : null
     const kh = k && new Date(k.at).getHours()
@@ -266,10 +276,30 @@ function ThaySheet({ c, onClose }: { c: Ctx; onClose: () => void }) {
 }
 
 type Chat = { role: 'user' | 'assistant'; content: string }
+// Câu nói lúc chờ AI trả lời
+const WAIT = [
+  '🔮 Để thầy bấm đốt ngón tay… ngón cái, ngón trỏ, ngón giữa',
+  '🍵 Khoan, thầy nhấp ngụm trà cho tỉnh đã',
+  '📜 Thầy đang lật sách tử vi, trang này rách mất góc',
+  '🌟 Sao Thái Bạch hôm nay đi lạc, thầy đang tìm',
+  '💨 Khói hương bay về hướng Đông Nam, có điềm đây',
+  '👴 Thầy hỏi ý ông Từ bên kia một câu',
+  '🧮 Cộng can, trừ chi, nhân ngũ hành, chia cho… khoan, nhớ một',
+  '👓 Kính thầy mờ quá, để thầy lau cái đã',
+  '🐓 Con gà nhà ai gáy đúng lúc, điềm lành đấy',
+  '🌙 Thầy đang nhìn trăng đoán ý trời',
+  '🪭 Phe phẩy cái quạt cho thông đầu óc đã',
+  '📿 Lần tràng hạt, đếm đến hạt thứ chín…',
+  '🐢 Thầy gieo ba đồng xu… một đồng lăn vào gầm chiếu rồi',
+  '☯️ Âm dương đang cân nhau, chờ chút cho cân',
+  '📞 Thầy gọi điện hỏi Thổ Công, máy bận',
+]
 function AskThay({ c }: { c: Ctx }) {
   const key = 'xm-thay-' + c.me.id
   const [msgs, setMsgs] = useState<Chat[]>(() => { try { return JSON.parse(sessionStorage.getItem(key) || '[]') } catch { return [] } })
   const [v, setV] = useState(''), [busy, setBusy] = useState(false), [left, setLeft] = useState<number | null>(null), [err, setErr] = useState('')
+  const [waitI, setWaitI] = useState(0)
+  useEffect(() => { if (!busy) return; setWaitI(Math.floor(Math.random() * WAIT.length)); const t = setInterval(() => setWaitI(i => i + 1 + Math.floor(Math.random() * 3)), 1500); return () => clearInterval(t) }, [busy])
   const end = useRef<HTMLDivElement>(null)
   useEffect(() => { try { sessionStorage.setItem(key, JSON.stringify(msgs.slice(-20))) } catch { /* bỏ qua */ } end.current?.scrollIntoView({ block: 'nearest' }) }, [msgs, key])
   const t = tuoi(c.me.dob), L = toLunar(new Date())
@@ -285,7 +315,7 @@ function AskThay({ c }: { c: Ctx }) {
     <div className="thread">{msgs.map((m, i) => <div key={i} className={'msg' + (m.role === 'user' ? ' me' : '')}>
       {m.role === 'assistant' && <div className="npc-face mini" dangerouslySetInnerHTML={{ __html: npcSVG('thay') }} />}
       <div className="bubble">{m.role === 'assistant' && <span className="by">Thầy Lộc</span>}{m.content}</div></div>)}
-      {busy && <div className="msg"><div className="npc-face mini" dangerouslySetInnerHTML={{ __html: npcSVG('thay') }} /><div className="bubble">Để thầy bấm đốt ngón tay…</div></div>}
+      {busy && <div className="msg"><div className="npc-face mini thinking" dangerouslySetInnerHTML={{ __html: npcSVG('thay') }} /><div className="bubble">{WAIT[waitI % WAIT.length]}<span className="dots"><i>.</i><i>.</i><i>.</i></span></div></div>}
       <div ref={end} /></div>
     {err && <div className="note">{err}</div>}
     <form className="composer" style={{ position: 'static' }} onSubmit={send}>

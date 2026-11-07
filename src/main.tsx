@@ -5,6 +5,7 @@ import { sb } from './supabase'
 import { Brand, ToastHost } from './ui'
 import { LoginPage } from './Login'
 import { InvitePage } from './Invite'
+import { GroupJoinPage } from './GroupJoin'
 import { Main } from './XomApp'
 import './styles.css'
 import './app.css'
@@ -29,6 +30,8 @@ function App() {
   const invite = path.match(/^\/moi\/([A-Za-z0-9]{4,16})\/?$/)
   if (session === undefined) return <div className="app"><header className="top"><Brand /></header><p className="sub">Đang mở…</p></div>
   if (invite) return <InvitePage code={invite[1].toUpperCase()} session={session} />
+  const group = path.match(/^\/vao\/([A-Za-z0-9]{8,24})\/?$/)
+  if (group) return <GroupJoinPage code={group[1].toUpperCase()} session={session} />
   if (!session) return <LoginPage />
   return <Main key={session.user.id} session={session} />
 }
