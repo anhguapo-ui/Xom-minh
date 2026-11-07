@@ -1,0 +1,11 @@
+/* Bổ sung cho bản app thật (phần còn lại dùng chung với bản demo: styles.css) */
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+.inapp{background:var(--sun-soft);color:var(--sun-ink);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.inapp p{margin:0}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.gbtn:disabled,.btn:disabled{opacity:.55;cursor:default}
+nav.tabs .in{grid-template-columns:repeat(4,1fr)}
