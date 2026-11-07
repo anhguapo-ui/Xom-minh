@@ -7,6 +7,7 @@ import { FamilyForm } from './FamilyForm'
 import { ChibiEditor } from './ChibiEditor'
 import { useLive } from './live'
 import { toLunar, findLunar, lunarName } from './lunar'
+import { GateCard, Temple } from './Temple'
 import { type Ctx, CheckinCard, FreeList, KeoCard, KeoDetail, NewKeoSheet, Hosts, NewHostSheet, ChatTab, PinSheet, PollCard, NewPollSheet, UpcomingKeos, postWish } from './Activity'
 
 export function Main({ session }: { session: Session }) {
@@ -88,7 +89,7 @@ const ICONS: Record<string, string> = {
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8"/></svg>',
   xom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2.5 19a5.5 5.5 0 0 1 11 0"/><path d="M10.5 19a5.5 5.5 0 0 1 11 0"/></svg>',
 }
-type Tab = 'home' | 'keo' | 'chat' | 'xom'
+type Tab = 'home' | 'keo' | 'chat' | 'xom' | 'mieu'
 
 function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: () => void }) {
   const toast = useToast()
@@ -99,6 +100,7 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
   const famName = (f: Family) => f.id === myFam.id ? 'Nhà mình' : 'Nhà ' + famShort(d, f)
   const close = useCallback(() => setSheet(null), [])
   const [keoId, setKeoId] = useState<string | null>(null)
+  const [enterMieu, setEnterMieu] = useState(false)
   const [keoSub, setKeoSub] = useState<'keo' | 'host'>('keo')
   useEffect(() => { sessionStorage.setItem('xm-tab', tab); scrollTo(0, 0) }, [tab, keoId])
   const onErr = useCallback((e: unknown) => toast(errText(e)), [toast])
@@ -139,6 +141,7 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
     <div><h1>{DOW[now.getDay()]}, {now.getDate()} tháng {now.getMonth() + 1}</h1>
       <p className="sub">{lunarName(L)} âm lịch{nextLe ? ' · ' + (nextLe.days === 0 ? 'hôm nay là ' + (nextLe.l.d === 1 ? 'mùng 1' : 'ngày rằm') : 'còn ' + nextLe.days + ' ngày đến ' + (nextLe.l.d === 1 ? 'mùng 1' : 'rằm')) : ''}</p></div>
     <CheckinCard c={c} />
+    <GateCard c={c} enter={() => { setEnterMieu(true); setTab('mieu') }} />
     <FreeList c={c} />
     <section className="section">
       <div className="section-head"><h2>Kèo sắp tới</h2><button className="link" onClick={() => setSheet({ k: 'newKeo' })}>+ Rủ kèo</button></div>
@@ -170,6 +173,7 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
       <p className="sub small">Kèo tự chuyển sang "Chốt kèo!" khi đủ số người tối thiểu. Bấm vào kèo để xem ai đi và bàn thêm.</p>
     </section>}
   </>
+  else if (tab === 'mieu') view = <Temple c={c} enter={enterMieu} back={() => { setEnterMieu(false); setTab('home') }} />
   else if (tab === 'chat') view = <ChatTab c={c} pin={() => setSheet({ k: 'pin' })} />
   else view = <>
     <div><h1>{d.xom.name}</h1><p className="sub">{d.families.length} gia đình · {joined} người lớn đã vào · {d.members.filter(m => m.role === 'kid').length} bạn nhỏ</p></div>
