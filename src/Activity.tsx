@@ -4,6 +4,7 @@ import { type Live, type Keo, type Message, type Rsvp, dayKey, streakOf } from '
 import { STATUS, FREE, TYPES, st, ty } from './consts'
 import { DOW, adultsOf, dayDiff, dm, famShort } from './util'
 import { FamilyHeads, MemberHead, Sheet, useToast } from './ui'
+import { notify } from './push'
 
 export type Ctx = { d: XomData; live: Live; me: Member; myFam: Family; reload: () => void; tick: number }
 
@@ -51,7 +52,7 @@ export function FreeList({ c }: { c: Ctx }) {
   const missing = ppl.filter(p => !by.has(p.id))
   async function poke() {
     const { error } = await sb.from('messages').insert({ xom_id: c.d.xom.id, member_id: c.me.id, body: `📣 ${c.me.name} ới cả xóm: hôm nay ai rảnh thì điểm danh nhé! (${missing.length} người chưa điểm danh)` })
-    if (error) toast(errText(error)); else { toast('Đã ới trong kênh chung'); c.reload() }
+    if (error) toast(errText(error)); else { toast('Đã ới cả xóm'); notify(c.d.xom.id, '📣 ' + c.me.name + ' ới cả xóm', 'Hôm nay ai rảnh thì điểm danh nhé!', '/', 'poke'); c.reload() }
   }
   const row = (f: Family) => <div className="row" key={f.id}><FamilyHeads d={c.d} f={f} />
     <div className="grow"><div className="name">{famName(c, f)}</div>
@@ -76,6 +77,8 @@ function RsvpButtons({ mine, onPick, labels = ['Đi luôn', 'Để xem', 'Không
     <button key={v} className={i === 1 ? 'maybe' : i === 2 ? 'no' : ''} aria-pressed={mine === v} onClick={() => onPick(mine === v ? null : v)}>{labels[i]}</button>)}</div>
 }
 async function setKeoRsvp(c: Ctx, k: Keo, v: Rsvp['status'] | null) {
+  const before = c.live.keoRsvps.filter(r => r.keo_id === k.id && r.status === 'yes' && r.member_id !== c.me.id).length
+  if (v === 'yes' && !k.locked_at && before + 1 >= k.min_people) notify(c.d.xom.id, '🔥 Chốt kèo: ' + k.title, when(k.at) + ' · ' + k.place + ' · đủ ' + (before + 1) + ' người', '/', 'keo-' + k.id)
   const r = v ? await sb.from('keo_rsvps').upsert({ keo_id: k.id, member_id: c.me.id, xom_id: k.xom_id, status: v, updated_at: new Date().toISOString() }, { onConflict: 'keo_id,member_id' })
     : await sb.from('keo_rsvps').delete().eq('keo_id', k.id).eq('member_id', c.me.id)
   return r.error
@@ -151,7 +154,7 @@ export function NewKeoSheet({ c, onClose, onCreated }: { c: Ctx; onClose: () => 
     const { data, error } = await sb.from('keos').insert({ xom_id: c.d.xom.id, host_member: c.me.id, type: f.type, title: f.title.trim(), at: new Date(f.at).toISOString(), place: f.place.trim(), min_people: f.min }).select('id').single()
     if (!error) await sb.from('keo_rsvps').insert({ keo_id: data.id, member_id: c.me.id, xom_id: c.d.xom.id, status: 'yes' })
     setBusy(false)
-    if (error) toast(errText(error)); else { toast('Đã đăng kèo, chờ cả xóm hưởng ứng!'); c.reload(); onCreated(data.id) }
+    if (error) toast(errText(error)); else { toast('Đã đăng kèo, chờ cả xóm hưởng ứng!'); notify(c.d.xom.id, ty(f.type).e + ' ' + c.me.name + ' rủ kèo: ' + f.title.trim(), when(new Date(f.at).toISOString()) + ' · ' + f.place.trim(), '/', 'keo-new'); c.reload(); onCreated(data.id) }
   }
   return <Sheet label="Rủ kèo mới" onClose={onClose}><h2>Rủ một kèo mới</h2>
     <form className="stackf" onSubmit={submit}>
@@ -174,7 +177,7 @@ export function Hosts({ c, newHost }: { c: Ctx; newHost: (open: boolean) => void
   for (const h of c.live.hosts) if (h.family_id && new Date(h.at).getFullYear() === year) gold.set(h.family_id, (gold.get(h.family_id) || 0) + 1)
   const rpc = async (id: string, take: boolean) => {
     const { error } = await sb.rpc('volunteer_host', { p_host: id, p_take: take })
-    if (error) toast(errText(error)); else { toast(take ? 'Cảm ơn nhà mình đã xung phong!' : 'Đã mở lại cho nhà khác xung phong'); c.reload() }
+    if (error) toast(errText(error)); else { toast(take ? 'Cảm ơn nhà mình đã xung phong!' : 'Đã mở lại cho nhà khác xung phong'); const h = c.live.hosts.find(x => x.id === id); if (h) notify(c.d.xom.id, take ? '🏡 Có nhà nhận đăng cai' : '🏠 Buổi đăng cai cần nhà mới', (take ? 'Nhà ' + famShort(c.d, c.myFam) + ' xung phong đăng cai: ' : 'Ai nhận đăng cai giúp: ') + h.title, '/', 'host-' + id); c.reload() }
   }
   async function rsvp(hid: string, v: Rsvp['status'] | null) {
     const r = v ? await sb.from('host_rsvps').upsert({ host_id: hid, member_id: c.me.id, xom_id: c.d.xom.id, status: v }, { onConflict: 'host_id,member_id' })
@@ -221,7 +224,9 @@ export function NewHostSheet({ c, open, onClose }: { c: Ctx; open: boolean; onCl
     const { data, error } = await sb.from('hosts').insert({ xom_id: c.d.xom.id, title: f.title.trim(), at: new Date(f.at).toISOString(), note: f.note.trim() || null, created_by: c.me.id, family_id: open ? null : c.myFam.id }).select('id').single()
     if (error) { toast(errText(error)); return }
     if (!open) await sb.from('host_rsvps').insert(adultsOf(c.d, c.myFam).filter(m => m.user_id).map(m => ({ host_id: data.id, member_id: m.id, xom_id: c.d.xom.id, status: 'yes' })))
-    toast(open ? 'Đã mở buổi, chờ nhà xung phong' : 'Đã đăng buổi mới, nhà mình làm chủ nhà!'); c.reload(); onClose()
+    toast(open ? 'Đã mở buổi, chờ nhà xung phong' : 'Đã đăng buổi mới, nhà mình làm chủ nhà!')
+    notify(c.d.xom.id, open ? '🏠 Buổi mới chờ xung phong đăng cai' : '🏡 Nhà ' + famShort(c.d, c.myFam) + ' mời cả xóm', f.title.trim() + ' · ' + when(new Date(f.at).toISOString()), '/', 'host-new')
+    c.reload(); onClose()
   }
   return <Sheet label="Buổi đăng cai mới" onClose={onClose}><h2>{open ? 'Mở buổi chờ xung phong' : 'Nhà mình đăng cai'}</h2>
     <form className="stackf" onSubmit={submit}>
@@ -255,7 +260,7 @@ function Composer({ c, channel, placeholder, after }: { c: Ctx; channel: string;
     setBusy(true)
     const { error } = await sb.from('messages').insert({ xom_id: c.d.xom.id, channel, member_id: c.me.id, body })
     setBusy(false)
-    if (error) toast(errText(error)); else { setV(''); after() }
+    if (error) toast(errText(error)); else { setV(''); notify(c.d.xom.id, channel === 'general' ? '💬 ' + c.me.name : '💬 ' + c.me.name + ' (bàn kèo)', body, '/', channel === 'general' ? 'chat' : channel); after() }
   }
   return <form className="composer" onSubmit={send}><input aria-label="Tin nhắn" autoComplete="off" maxLength={500} placeholder={placeholder} value={v} onChange={e => setV(e.target.value)} />
     <button type="submit" disabled={busy}>Gửi</button></form>
@@ -322,7 +327,7 @@ export function NewPollSheet({ c, onClose }: { c: Ctx; onClose: () => void }) {
     const o = opts.map(s => s.trim()).filter(Boolean)
     if (o.length < 2) { toast('Cần ít nhất 2 lựa chọn'); return }
     const { error } = await sb.from('polls').insert({ xom_id: c.d.xom.id, question: q.trim(), options: o, created_by: c.me.id })
-    if (error) toast(errText(error)); else { toast('Đã tạo bình chọn'); c.reload(); onClose() }
+    if (error) toast(errText(error)); else { toast('Đã tạo bình chọn'); notify(c.d.xom.id, '🗳️ ' + c.me.name + ' mở bình chọn', q.trim(), '/', 'poll'); c.reload(); onClose() }
   }
   return <Sheet label="Tạo bình chọn" onClose={onClose}><h2>Tạo bình chọn</h2>
     <form className="stackf" onSubmit={submit}>
@@ -341,5 +346,6 @@ export function UpcomingKeos({ c, open, all }: { c: Ctx; open: (id: string) => v
 }
 
 export async function postWish(c: Ctx, text: string) {
+  notify(c.d.xom.id, '💬 ' + c.me.name, text, '/', 'chat')
   return sb.from('messages').insert({ xom_id: c.d.xom.id, member_id: c.me.id, body: text })
 }

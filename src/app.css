@@ -10,3 +10,6 @@ img{max-width:100%}
 .gbtn:disabled,.btn:disabled{opacity:.55;cursor:default}
 nav.tabs .in{grid-template-columns:repeat(4,1fr)}
 .poll .poll-end{display:inline-flex;align-items:center;width:auto;border:0;background:none;padding:0 4px;margin-top:8px;min-height:44px;color:var(--accent);font-weight:700}
+.notify-card{display:flex;flex-direction:column;gap:10px}
+.steps-list{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:15px}
+.notify-card .link{align-self:flex-start}

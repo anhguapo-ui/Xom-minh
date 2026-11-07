@@ -8,6 +8,8 @@ import { ChibiEditor } from './ChibiEditor'
 import { useLive } from './live'
 import { toLunar, findLunar, lunarName } from './lunar'
 import { GateCard, Temple } from './Temple'
+import { NotifyCard, NotifyToggle } from './Install'
+import { disablePush } from './push'
 import { type Ctx, CheckinCard, FreeList, KeoCard, KeoDetail, NewKeoSheet, Hosts, NewHostSheet, ChatTab, PinSheet, PollCard, NewPollSheet, UpcomingKeos, postWish } from './Activity'
 
 export function Main({ session }: { session: Session }) {
@@ -141,6 +143,7 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
     <div><h1>{DOW[now.getDay()]}, {now.getDate()} tháng {now.getMonth() + 1}</h1>
       <p className="sub">{lunarName(L)} âm lịch{nextLe ? ' · ' + (nextLe.days === 0 ? 'hôm nay là ' + (nextLe.l.d === 1 ? 'mùng 1' : 'ngày rằm') : 'còn ' + nextLe.days + ' ngày đến ' + (nextLe.l.d === 1 ? 'mùng 1' : 'rằm')) : ''}</p></div>
     <CheckinCard c={c} />
+    <NotifyCard memberId={me.id} xomId={d.xom.id} />
     <GateCard c={c} enter={() => { setEnterMieu(true); setTab('mieu') }} />
     <FreeList c={c} />
     <section className="section">
@@ -214,7 +217,8 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
       <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}><Chibi look={lookOf(me)} /><div><h2>{me.name}</h2><p className="sub small" style={{ margin: 0 }}>{session.user.email}</p>{me.is_admin && <span className="pst">Trưởng xóm</span>}</div></div>
       <button className="btn ghost" onClick={() => setSheet({ k: 'chibi', id: me.id })}>Sửa chibi</button>
       <button className="btn ghost" onClick={() => setSheet({ k: 'fam' })}>Sửa hồ sơ nhà mình</button>
-      <button className="btn ghost" onClick={() => { localStorage.removeItem('xm-xom'); sb.auth.signOut() }}>Đăng xuất</button>
+      <NotifyToggle memberId={me.id} xomId={d.xom.id} />
+      <button className="btn ghost" onClick={async () => { await disablePush().catch(() => {}); localStorage.removeItem('xm-xom'); sb.auth.signOut() }}>Đăng xuất</button>
     </Sheet>}
     {sheet?.k === 'fam' && <Sheet label="Hồ sơ nhà mình" onClose={close}>
       <h2>Hồ sơ nhà mình</h2>

@@ -6,6 +6,7 @@ import { Brand, Head, useToast } from './ui'
 import { readLook } from './chibi'
 import { LoginBox } from './Login'
 import { FamilyForm } from './FamilyForm'
+import { notify } from './push'
 
 type Person = { id: string; name: string; claimed: boolean }
 type InviteInfo = { ok: true; xom: string; inviter: string | null; family_count: number; member: Person | null; adults: { id: string; name: string; claimed: boolean }[]; kids: string[] }
@@ -43,6 +44,8 @@ export function InvitePage({ code, session }: { code: string; session: Session |
       toast(errText(error)); setStep('who'); return
     }
     localStorage.setItem('xm-xom', xomId as string)
+    const nm = info?.ok ? info.adults.find(x => x.id === memberId)?.name : ''
+    notify(xomId as string, '👋 ' + (nm || 'Có người') + ' vừa vào xóm', 'Vào chào một câu nhé!', '/', 'join')
     setMe(memberId)
     setData(await loadXom(xomId as string))
     setStep('profile')

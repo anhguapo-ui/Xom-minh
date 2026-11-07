@@ -8,6 +8,9 @@ import { InvitePage } from './Invite'
 import { Main } from './XomApp'
 import './styles.css'
 import './app.css'
+import { registerSW } from './push'
+
+registerSW()
 
 function usePath() {
   const [p, setP] = useState(location.pathname)
