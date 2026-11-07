@@ -33,9 +33,9 @@ Mọi quyền đọc/ghi do RLS quyết định: người ngoài xóm không xem
 ## AI (OpenAI)
 
 - `netlify/functions/thay-ai.mts` (`/api/thay-ai`): trò chuyện với Thầy Lộc, 100 câu/người/ngày.
-- `netlify/functions/chibi-ai.mts` (`/api/chibi-ai`): AI chọn kiểu chibi từ ảnh; AI vẽ chân dung chibi (20 lần/người/tháng),
+- `netlify/functions/chibi-ai.mts` (`/api/chibi-ai`): AI vẽ chibi từ ảnh (20 lần/người/tháng), tự chọn model OpenAI khoá dùng được,
   phần vẽ chạy nền ở `chibi-draw-background.mts`.
-- Cần biến môi trường `OPENAI_API_KEY` trên Netlify. Tuỳ chọn: `OPENAI_CHAT_MODEL`, `OPENAI_IMAGE_MODEL`, `OPENAI_IMAGE_QUALITY`.
+- Cần biến môi trường `OPENAI_API_KEY` trên Netlify. Model được tự chọn theo danh sách khoá dùng được; muốn ép model cụ thể thì đặt `OPENAI_CHAT_MODEL`, `OPENAI_IMAGE_MODEL`.
 
 ## Các phần của app
 

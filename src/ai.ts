@@ -6,6 +6,12 @@ const MSG: Record<string, string> = {
   ai_loi: 'AI đang bận hoặc gặp lỗi, thử lại sau ít phút nhé.',
   can_dong_y: 'Cần cha mẹ đồng ý trước khi gửi ảnh của bé cho AI.',
   anh_khong_hop_le: 'Ảnh không hợp lệ hoặc quá lớn, chọn ảnh khác nhé.',
+  het_tien: 'Tài khoản OpenAI hết tiền. Trưởng xóm vào platform.openai.com → Billing để nạp thêm nhé.',
+  can_xac_minh: 'Tài khoản OpenAI cần xác minh tổ chức (Settings → Organization → Verify) mới vẽ được.',
+  khoa_sai: 'Khoá OpenAI không đúng hoặc đã bị xoá. Trưởng xóm kiểm tra lại OPENAI_API_KEY trên Netlify nhé.',
+  model: 'Khoá OpenAI hiện chưa dùng được model vẽ ảnh nào. Trưởng xóm kiểm tra quyền của khoá (Project → Limits) nhé.',
+  noi_dung: 'AI từ chối vẽ ảnh này. Thử ảnh khác, chụp rõ mặt nhé.',
+  qua_tai: 'OpenAI đang quá tải, thử lại sau 1–2 phút nhé.',
 }
 export async function callAI<T>(path: string, body: unknown): Promise<T> {
   const { data } = await sb.auth.getSession()

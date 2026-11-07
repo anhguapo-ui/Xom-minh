@@ -1,45 +1,46 @@
 // Chạy nền (tối đa 15 phút): nhờ OpenAI vẽ chibi từ ảnh, cất kết quả để app hỏi lại.
-// Cách 1: gpt-image-1 nhìn ảnh vẽ lại (giống nhất, cần tài khoản OpenAI đã xác minh tổ chức).
-// Cách 2 (tự chuyển khi cách 1 bị từ chối): AI tả lại người trong ảnh, rồi dall-e-3 vẽ chibi từ mô tả (gần giống).
+// Tự hỏi khoá dùng được model nào: thử các model "nhìn ảnh vẽ lại" mới nhất trước,
+// không được thì AI tả lại người trong ảnh rồi vẽ từ mô tả (gần giống).
 import { getStore } from '@netlify/blobs'
-import { openaiKey } from '../lib/auth'
+import { listModels, imageEditModels, hasDalle3, chatModel, openaiJSON, openaiForm, imageOf } from '../lib/openai'
 
 const STYLE = 'cute chibi avatar, head and shoulders, big round head, big friendly eyes, soft pastel colors, clean flat vector illustration, front-facing, centered, plain warm cream background, no text'
 const PROMPT = `Turn this person into a ${STYLE}. Keep their hairstyle, hair color, glasses, skin tone and recognizable features.`
-const H = () => ({ Authorization: 'Bearer ' + openaiKey() })
 
-async function drawFromPhoto(mime: string, b64: string): Promise<{ image?: string; status: number; msg?: string }> {
-  const form = new FormData()
-  form.append('model', process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1')
-  form.append('image', new Blob([Buffer.from(b64, 'base64')], { type: mime }), 'photo.' + mime.split('/')[1])
-  form.append('prompt', PROMPT)
-  form.append('size', '1024x1024')
-  form.append('quality', process.env.OPENAI_IMAGE_QUALITY || 'medium')
-  const r = await fetch('https://api.openai.com/v1/images/edits', { method: 'POST', headers: H(), body: form })
-  if (!r.ok) return { status: r.status, msg: (await r.text()).slice(0, 300) }
-  const j = await r.json()
-  return { status: 200, image: j.data?.[0]?.b64_json ? 'data:image/png;base64,' + j.data[0].b64_json : undefined }
-}
-
-async function drawFromDescription(dataUrl: string): Promise<string | undefined> {
-  const d = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST', headers: { ...H(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: process.env.OPENAI_VISION_MODEL || process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini', max_tokens: 120,
-      messages: [{ role: 'user', content: [
-        { type: 'text', text: 'Describe only the visible appearance of the main person for an illustrator, in one short English sentence: approximate age group, gender presentation, hairstyle and hair color, skin tone, glasses, facial hair, clothing color. No names, no guesses about identity.' },
-        { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } }] }],
-    }),
+async function run(dataUrl: string): Promise<{ image?: string; error?: string }> {
+  const ids = await listModels()
+  console.log('model vẽ có thể dùng:', imageEditModels(ids).join(', ') || '(không có)', '| dall-e-3:', hasDalle3(ids))
+  if (!ids.length) return { error: 'khoa_sai' }
+  const [, mime, b64] = dataUrl.match(/^data:(image\/\w+);base64,(.*)$/) || []
+  let lastErr = 'model'
+  // Cách 1: nhìn ảnh vẽ lại
+  for (const model of imageEditModels(ids)) {
+    const form = new FormData()
+    form.append('model', model)
+    form.append('image', new Blob([Buffer.from(b64, 'base64')], { type: mime }), 'photo.' + mime.split('/')[1])
+    form.append('prompt', PROMPT)
+    form.append('size', '1024x1024')
+    if (process.env.OPENAI_IMAGE_QUALITY) form.append('quality', process.env.OPENAI_IMAGE_QUALITY)
+    const r = await openaiForm('images/edits', form)
+    if (r.ok) { const img = await imageOf(r.j); if (img) { console.log('vẽ xong bằng', model); return { image: img } } }
+    else { lastErr = r.code; console.log('model', model, 'lỗi', r.code); if (['het_tien', 'khoa_sai', 'noi_dung'].includes(r.code)) return { error: r.code } }
+  }
+  // Cách 2: tả lại rồi vẽ từ mô tả
+  const gen = hasDalle3(ids) ? 'dall-e-3' : imageEditModels(ids)[0]
+  if (!gen) return { error: lastErr }
+  const d = await openaiJSON('chat/completions', {
+    model: chatModel(ids), max_tokens: 120,
+    messages: [{ role: 'user', content: [
+      { type: 'text', text: 'Describe only the visible appearance of the main person for an illustrator, in one short English sentence: approximate age group, gender presentation, hairstyle and hair color, skin tone, glasses, facial hair, clothing color. No names, no guesses about identity.' },
+      { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } }] }],
   })
-  if (!d.ok) { console.log('describe', d.status, (await d.text()).slice(0, 300)); return }
-  const desc = String((await d.json()).choices?.[0]?.message?.content || 'a friendly person').slice(0, 400)
-  const r = await fetch('https://api.openai.com/v1/images/generations', {
-    method: 'POST', headers: { ...H(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'dall-e-3', prompt: `${STYLE}. The character: ${desc}`, size: '1024x1024', response_format: 'b64_json', n: 1 }),
-  })
-  if (!r.ok) { console.log('dall-e-3', r.status, (await r.text()).slice(0, 300)); return }
-  const j = await r.json()
-  return j.data?.[0]?.b64_json ? 'data:image/png;base64,' + j.data[0].b64_json : undefined
+  if (!d.ok) return { error: d.code }
+  const desc = String(d.j.choices?.[0]?.message?.content || 'a friendly person').slice(0, 400)
+  const g = await openaiJSON('images/generations', { model: gen, prompt: `${STYLE}. The character: ${desc}`, size: '1024x1024', n: 1, ...(gen === 'dall-e-3' ? { response_format: 'b64_json' } : {}) })
+  if (!g.ok) return { error: g.code === 'model' ? lastErr : g.code }
+  const img = await imageOf(g.j)
+  console.log('vẽ xong bằng mô tả +', gen)
+  return img ? { image: img } : { error: 'ai_loi' }
 }
 
 export default async (req: Request) => {
@@ -48,17 +49,7 @@ export default async (req: Request) => {
   if (!/^[0-9a-f-]{36}$/.test(job)) return
   const store = getStore('chibi-jobs')
   const img = await store.get('in/' + job, { type: 'text' }); if (!img) return
-  try {
-    const [, mime, b64] = img.match(/^data:(image\/\w+);base64,(.*)$/) || []
-    let out: string | undefined
-    const first = await drawFromPhoto(mime, b64)
-    if (first.image) out = first.image
-    else {
-      console.log('gpt-image-1 bị từ chối, chuyển cách dự phòng', first.status, first.msg)
-      out = await drawFromDescription(img)
-    }
-    await store.setJSON('out/' + job, out ? { image: out } : { error: 'ai_loi' })
-  } catch (e) {
-    console.log('draw error', e); await store.setJSON('out/' + job, { error: 'ai_loi' })
-  } finally { await store.delete('in/' + job) }
+  try { await store.setJSON('out/' + job, await run(img)) }
+  catch (e) { console.log('draw error', e); await store.setJSON('out/' + job, { error: 'ai_loi' }) }
+  finally { await store.delete('in/' + job) }
 }

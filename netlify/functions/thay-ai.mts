@@ -1,5 +1,6 @@
 // Trò chuyện với Thầy Lộc (OpenAI). Giới hạn 100 câu/người/ngày.
 import { caller, takeQuota, openaiKey } from '../lib/auth'
+import { listModels, chatModel, openaiJSON } from '../lib/openai'
 
 const SYSTEM = `Bạn là "Thầy Lộc", ông thầy bói vui tính ngồi dưới ô trong Miếu Thần Tài của một nhóm bạn bè các gia đình ("Xóm Mình").
 Cách nói: tiếng Việt, xưng "thầy", gọi người hỏi bằng tên hoặc "con", giọng hóm hỉnh, ấm áp, kiểu thầy bói dân gian, hay dùng thành ngữ, ca dao.
@@ -21,16 +22,12 @@ export default async (req: Request) => {
     .map(m => ({ role: m.role, content: m.content.slice(0, 600) }))
   if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return new Response('Bad request', { status: 400 })
   const left = await takeQuota(c, String(b.xom_id), 'thay'); if (left instanceof Response) return left
-  const r = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + openaiKey() },
-    body: JSON.stringify({
-      model: process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini', temperature: 0.9, max_tokens: 350,
-      messages: [{ role: 'system', content: SYSTEM }, { role: 'system', content: 'Thông tin người hỏi: ' + String(b.ctx || '').slice(0, 400) }, ...msgs],
-    }),
+  const r = await openaiJSON('chat/completions', {
+    model: chatModel(await listModels()), temperature: 0.9, max_tokens: 350,
+    messages: [{ role: 'system', content: SYSTEM }, { role: 'system', content: 'Thông tin người hỏi: ' + String(b.ctx || '').slice(0, 400) }, ...msgs],
   })
-  if (!r.ok) { console.log('openai', r.status, (await r.text()).slice(0, 300)); return Response.json({ error: 'ai_loi' }, { status: 502 }) }
-  const j = await r.json()
-  return Response.json({ reply: String(j.choices?.[0]?.message?.content || 'Thầy đang bận pha trà, con hỏi lại sau nhé!'), left })
+  if (!r.ok) return Response.json({ error: r.code }, { status: 502 })
+  return Response.json({ reply: String(r.j.choices?.[0]?.message?.content || 'Thầy đang bận pha trà, con hỏi lại sau nhé!'), left })
 }
 
 export const config = { path: '/api/thay-ai' }
