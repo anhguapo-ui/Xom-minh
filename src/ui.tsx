@@ -23,7 +23,7 @@ export function Chibi({ look, className = '' }: { look: Look; className?: string
    thay vì thoát app; đóng bằng nút trên màn hình thì tự gỡ mục lịch sử tương ứng. */
 type BackEntry = { id: number; fn: () => void; popped: boolean }
 const backStack: BackEntry[] = []
-let ignorePops = 0, backSeq = 0
+let ignorePops = 0, backSeq = 0, pendingBack = 0
 addEventListener('popstate', () => {
   if (ignorePops > 0) { ignorePops--; return }
   const top = backStack.pop()
@@ -34,11 +34,17 @@ export function useBack(active: boolean, onBack: () => void) {
   useEffect(() => {
     if (!active) return
     const e: BackEntry = { id: ++backSeq, fn: () => fn.current(), popped: false }
-    backStack.push(e); history.pushState({ xmBack: e.id }, '')
+    backStack.push(e)
+    // Vừa đóng khung này để mở khung khác: dùng lại mục lịch sử cũ thay vì lùi rồi thêm
+    if (pendingBack > 0) { pendingBack--; history.replaceState({ xmBack: e.id }, '') }
+    else history.pushState({ xmBack: e.id }, '')
     return () => {
       const i = backStack.indexOf(e)
       if (i >= 0) backStack.splice(i, 1)
-      if (!e.popped) { ignorePops++; history.back() }
+      if (!e.popped) {
+        pendingBack++
+        setTimeout(() => { if (pendingBack > 0) { pendingBack--; ignorePops++; history.back() } }, 0)
+      }
     }
   }, [active])
 }

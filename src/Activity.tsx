@@ -21,17 +21,23 @@ const memberById = (c: Ctx, id: string | null) => c.d.members.find(m => m.id ===
 const joinedAdults = (c: Ctx) => c.d.members.filter(m => m.role === 'adult' && m.user_id)
 
 /* ---------- Điểm danh ---------- */
+// Lưu điểm danh hôm nay, trả về lời báo cho người dùng
+export async function saveCheckin(c: Ctx, k: string) {
+  const first = !c.live.today.some(x => x.member_id === c.me.id), streak = streakOf(c.live.myDays)
+  const { error } = await sb.from('checkins').upsert({ xom_id: c.d.xom.id, member_id: c.me.id, day: dayKey(), status: k, updated_at: new Date().toISOString() }, { onConflict: 'member_id,day' })
+  if (error) return { ok: false, msg: errText(error) }
+  c.reload()
+  return { ok: true, msg: first ? `Điểm danh xong! Chuỗi ${streak + (c.live.myDays.includes(dayKey()) ? 0 : 1)} ngày 🔥` : 'Đã đổi trạng thái' }
+}
+
 export function CheckinCard({ c }: { c: Ctx }) {
   const toast = useToast()
   const mine = c.live.today.find(x => x.member_id === c.me.id)
   const [open, setOpen] = useState(false)
   const streak = streakOf(c.live.myDays)
   async function pick(k: string) {
-    const first = !mine
-    const { error } = await sb.from('checkins').upsert({ xom_id: c.d.xom.id, member_id: c.me.id, day: dayKey(), status: k, updated_at: new Date().toISOString() }, { onConflict: 'member_id,day' })
-    if (error) { toast(errText(error)); return }
-    setOpen(false); c.reload()
-    toast(first ? `Điểm danh xong! Chuỗi ${streak + (c.live.myDays.includes(dayKey()) ? 0 : 1)} ngày 🔥` : 'Đã đổi trạng thái')
+    const r = await saveCheckin(c, k)
+    toast(r.msg); if (r.ok) setOpen(false)
   }
   if (mine && !open) return <div className="card done-strip"><span className="em" aria-hidden="true">{st(mine.status).e}</span>
     <div className="grow"><b>Đã điểm danh: {st(mine.status).t}</b><div className="meta">lúc {hm(new Date(mine.updated_at))} · <span className="streak">{streak} ngày liên tục</span></div></div>
@@ -146,10 +152,10 @@ export function KeoDetail({ c, id, back }: { c: Ctx; id: string; back: () => voi
   </>
 }
 
-export function NewKeoSheet({ c, onClose, onCreated }: { c: Ctx; onClose: () => void; onCreated: (id: string) => void }) {
+export function NewKeoSheet({ c, onClose, onCreated, preset }: { c: Ctx; onClose: () => void; onCreated: (id: string) => void; preset?: { type: string; title: string } }) {
   const toast = useToast()
   const t = new Date(Date.now() + 864e5); t.setHours(19, 0, 0, 0)
-  const [f, setF] = useState({ type: 'cafe', title: '', at: new Date(t.getTime() - t.getTimezoneOffset() * 60000).toISOString().slice(0, 16), place: '', min: 3 })
+  const [f, setF] = useState({ type: preset?.type || 'cafe', title: preset?.title || '', at: new Date(t.getTime() - t.getTimezoneOffset() * 60000).toISOString().slice(0, 16), place: '', min: 3 })
   const [busy, setBusy] = useState(false)
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true)

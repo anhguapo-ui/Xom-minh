@@ -39,3 +39,65 @@ nav.tabs .in{grid-template-columns:repeat(4,1fr)}
 .npc-face.thinking svg{animation:think .5s ease-in-out infinite alternate}
 @keyframes think{to{transform:rotate(-6deg) translateY(-1px)}}
 .npc-face.thinking .fan{animation-duration:.35s}
+
+/* ---------- Phố xóm ---------- */
+.greet h1{margin-bottom:2px}
+.greet .sub{margin:0}
+.greet-line{margin:6px 0 0;font-weight:700;color:var(--sun-ink);background:var(--sun-soft);display:inline-block;padding:4px 12px;border-radius:99px;font-size:15px}
+.street{position:relative;margin-top:14px;height:214px;border-radius:22px;overflow:hidden;box-shadow:var(--shadow);background:linear-gradient(#8FD3F4,#D8F1FB 70%)}
+.street.sky-dawn{background:linear-gradient(#F7B7A3,#FCE3C2 70%)}
+.street.sky-dusk{background:linear-gradient(#F08A5D,#F9C784 55%,#FCE3C2)}
+.street.sky-night{background:linear-gradient(#141B3A,#2E3B6E 75%)}
+.st-sky{position:absolute;inset:0;pointer-events:none}
+.st-sun{position:absolute;right:28px;top:18px;width:38px;height:38px;border-radius:50%;background:#FFD66B;box-shadow:0 0 0 8px rgba(255,214,107,.3),0 0 0 18px rgba(255,214,107,.15)}
+.sky-dusk .st-sun{background:#FF9F5A;top:44px}
+.sky-dawn .st-sun{background:#FFB46B;top:50px;left:28px;right:auto}
+.st-moon{position:absolute;right:26px;top:12px;font-size:34px;filter:drop-shadow(0 0 10px rgba(255,240,180,.7))}
+.star{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff;animation:blink 2.4s infinite}
+.star.s1{left:12%;top:16px}.star.s2{left:34%;top:38px;animation-delay:.6s}.star.s3{left:58%;top:12px;animation-delay:1.2s}.star.s4{left:76%;top:46px;animation-delay:1.8s}
+.cloud{position:absolute;width:64px;height:20px;border-radius:20px;background:rgba(255,255,255,.85);animation:drift 46s linear infinite}
+.cloud::before{content:"";position:absolute;left:14px;top:-12px;width:30px;height:28px;border-radius:50%;background:inherit}
+.cloud.c1{top:26px;left:-80px}.cloud.c2{top:58px;left:-80px;transform:scale(.7);animation-duration:64s;animation-delay:-30s}
+.sky-night .cloud{background:rgba(255,255,255,.12)}
+@keyframes drift{to{left:110%}}
+.st-scroll{position:absolute;inset:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+.st-scroll::-webkit-scrollbar{display:none}
+.st-track{position:relative;display:flex;align-items:flex-end;gap:6px;height:100%;min-width:100%;width:max-content;padding:0 14px}
+.st-track::after{content:"";position:absolute;left:0;right:0;bottom:0;height:30px;background:linear-gradient(#C9B79C 0 6px,#8E8A84 6px);z-index:0}
+.st-track::before{content:"";position:absolute;left:0;right:0;bottom:12px;height:3px;background:repeating-linear-gradient(90deg,#F4F1E8 0 18px,transparent 18px 34px);z-index:1}
+.st-pair{display:flex;align-items:flex-end;height:100%}
+.st-lot{position:relative;z-index:2;flex:none;width:150px;height:100%;border:0;background:none;padding:0;cursor:pointer;scroll-snap-align:center;display:block;font:inherit;color:inherit}
+.st-lot.quan,.st-lot.mieu{width:128px}
+.st-lot.quan .st-sign,.st-lot.mieu .st-sign{bottom:128px}
+.st-house{position:absolute;left:5px;right:5px;bottom:26px;display:block}
+.st-house svg{display:block;width:100%;height:auto;overflow:visible}
+.st-lot.mieu .st-house{bottom:28px}
+.st-lot.mieu.fest .st-house{filter:drop-shadow(0 0 12px rgba(255,190,80,.9))}
+.st-lot:active .st-house{transform:scale(.97)}
+.st-sign{position:absolute;z-index:4;left:50%;bottom:136px;transform:translateX(-50%);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#FFF8EA;color:#5A3A12;border:2px solid #B07A3F;border-radius:10px;padding:1px 9px;font-size:13px;font-weight:800;box-shadow:0 2px 0 #B07A3F}
+.st-lot.mine .st-sign{background:var(--sun);color:#fff;border-color:#B4701A;box-shadow:0 2px 0 #B4701A}
+.st-lot.free .st-sign::after{content:" ☕"}
+.st-yard{position:absolute;left:0;right:0;bottom:2px;display:flex;justify-content:center;align-items:flex-end;gap:0;z-index:3}
+.st-p{position:relative;width:46px;animation:popout .5s cubic-bezier(.3,1.6,.6,1) both;animation-delay:var(--d)}
+.st-p.kid{width:34px}
+.st-fig{display:block}
+.st-fig svg{display:block;width:100%;height:auto;animation:breathe 3.2s ease-in-out infinite}
+.st-bub{position:absolute;left:50%;top:-20px;transform:translateX(-30%);background:#fff;border-radius:12px;padding:0 4px;font-size:15px;line-height:22px;box-shadow:0 1px 3px rgba(0,0,0,.2);animation:bob 2s ease-in-out infinite}
+.st-bub::after{content:"";position:absolute;left:6px;bottom:-4px;border:4px solid transparent;border-top-color:#fff;border-bottom:0}
+@keyframes popout{from{opacity:0;transform:translateY(-26px) scale(.4)}}
+@keyframes bob{50%{transform:translateX(-30%) translateY(-3px)}}
+.st-hint{font-size:12px;font-weight:700;background:rgba(255,255,255,.9);color:#5A3A12;border-radius:99px;padding:2px 8px;margin-bottom:6px}
+.st-balloon{position:absolute;left:0;bottom:96px;font-size:22px;z-index:3;animation:bob2 2.6s ease-in-out infinite}
+.st-lantern{position:absolute;right:10px;bottom:88px;font-size:20px;z-index:3;transform-origin:top center;animation:swing 2.4s ease-in-out infinite}
+@keyframes bob2{50%{transform:translateY(-6px)}}
+@keyframes swing{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+.st-tree{position:relative;z-index:2;flex:none;width:44px;margin-bottom:26px}
+.st-tree.big{width:70px}
+.st-tree svg{display:block;width:100%;height:auto}
+.smoke circle{fill:rgba(255,255,255,.7);animation:smoke 3s ease-out infinite}
+.smoke circle:nth-child(2){animation-delay:1.5s}
+@keyframes smoke{from{opacity:.8;transform:translateY(6px)}to{opacity:0;transform:translateY(-10px)}}
+.st-dog{position:absolute;bottom:4px;left:0;font-size:22px;z-index:4;animation:dogwalk 50s linear infinite}
+@keyframes dogwalk{0%{left:96%;transform:scaleX(1)}48%{left:1%;transform:scaleX(1)}50%{left:1%;transform:scaleX(-1)}98%{left:96%;transform:scaleX(-1)}100%{left:96%;transform:scaleX(1)}}
+.st-help{margin:6px 0 0;text-align:center;font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.street *{animation:none!important}}

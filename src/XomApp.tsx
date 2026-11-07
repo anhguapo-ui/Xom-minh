@@ -6,8 +6,10 @@ import { Brand, Chibi, FamilyHeads, MemberHead, Sheet, copyText, useToast, useBa
 import { FamilyForm } from './FamilyForm'
 import { ChibiEditor } from './ChibiEditor'
 import { useLive } from './live'
+import { FREE } from './consts'
 import { toLunar, findLunar, lunarName } from './lunar'
-import { GateCard, Temple } from './Temple'
+import { Temple } from './Temple'
+import { Street, HouseSheet } from './Street'
 import { AlbumTab, OnThisDay } from './Album'
 import { HelpTab } from './Help'
 import { JoinAdmin } from './JoinAdmin'
@@ -86,7 +88,7 @@ function NoXom({ session, onCreated }: { session: Session; onCreated: (id: strin
 }
 
 type LinkItem = { name: string; code: string }
-type SheetState = null | { k: 'newKeo' } | { k: 'newHost'; open: boolean } | { k: 'poll' } | { k: 'pin' } | { k: 'me' } | { k: 'fam' } | { k: 'famEdit'; id: string } | { k: 'chibi'; id: string } | { k: 'invite' } | { k: 'link'; items: LinkItem[]; fam: string }
+type SheetState = null | { k: 'newKeo'; preset?: { type: string; title: string } } | { k: 'house'; id: string } | { k: 'newHost'; open: boolean } | { k: 'poll' } | { k: 'pin' } | { k: 'me' } | { k: 'fam' } | { k: 'famEdit'; id: string } | { k: 'chibi'; id: string } | { k: 'invite' } | { k: 'link'; items: LinkItem[]; fam: string }
 
 const ICONS: Record<string, string> = {
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg>',
@@ -94,6 +96,7 @@ const ICONS: Record<string, string> = {
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h8"/></svg>',
   xom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2.5 19a5.5 5.5 0 0 1 11 0"/><path d="M10.5 19a5.5 5.5 0 0 1 11 0"/></svg>',
 }
+const greet = (h: number) => h < 11 ? 'Chào buổi sáng' : h < 14 ? 'Trưa rồi' : h < 18 ? 'Chiều vui' : 'Tối an lành'
 type Tab = 'home' | 'keo' | 'chat' | 'xom' | 'mieu'
 
 function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: () => void }) {
@@ -144,22 +147,26 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
 
   const c: Ctx | null = live ? { d, live, me, myFam, reload: reloadLive, tick } : null
   const L = toLunar(now), nextLe = findLunar(now, l => l.d === 1 || l.d === 15)
+  const freeFams = c ? d.families.filter(f => adultsOf(d, f).some(a => FREE.includes(c.live.today.find(x => x.member_id === a.id)?.status || ''))).length : 0
   const setupLeft = !me.look || Object.keys(me.look as object).length === 0 || (me.is_admin && d.families.length < 3)
 
   let view
   if (!c) view = <p className="sub">Đang tải hoạt động của xóm…</p>
   else if (tab === 'home') view = <>
-    <div><h1>{DOW[now.getDay()]}, {now.getDate()} tháng {now.getMonth() + 1}</h1>
-      <p className="sub">{lunarName(L)} âm lịch{nextLe ? ' · ' + (nextLe.days === 0 ? 'hôm nay là ' + (nextLe.l.d === 1 ? 'mùng 1' : 'ngày rằm') : 'còn ' + nextLe.days + ' ngày đến ' + (nextLe.l.d === 1 ? 'mùng 1' : 'rằm')) : ''}</p></div>
+    <div className="greet"><h1>{greet(now.getHours())}, {me.name}! 👋</h1>
+      <p className="sub">{DOW[now.getDay()]}, {now.getDate()}/{now.getMonth() + 1} · {lunarName(L)} âm lịch{nextLe ? ' · ' + (nextLe.days === 0 ? 'hôm nay là ' + (nextLe.l.d === 1 ? 'mùng 1' : 'ngày rằm') : 'còn ' + nextLe.days + ' ngày đến ' + (nextLe.l.d === 1 ? 'mùng 1' : 'rằm')) : ''}</p>
+      <p className="greet-line">{freeFams ? `Hôm nay xóm có ${freeFams} nhà đang rảnh 🎉` : 'Phố còn vắng, ra cửa điểm danh làm gương nhé!'}</p></div>
+    <Street c={c} openFamily={f => setSheet({ k: 'house', id: f.id })} openMieu={() => { setEnterMieu(true); setTab('mieu') }}
+      openQuan={() => { const k = c.live.keos.find(x => dayDiff(new Date(x.at)) === 0); if (k) openKeo(k.id); else setSheet({ k: 'newKeo' }) }} />
+    <p className="st-help">Vuốt ngang để dạo phố · bấm vào nhà để rủ rê</p>
     <CheckinCard c={c} />
     <NotifyCard memberId={me.id} xomId={d.xom.id} />
-    <GateCard c={c} enter={() => { setEnterMieu(true); setTab('mieu') }} />
     <FreeList c={c} />
     <section className="section">
-      <div className="section-head"><h2>Kèo sắp tới</h2><button className="link" onClick={() => setSheet({ k: 'newKeo' })}>+ Rủ kèo</button></div>
+      <div className="section-head"><h2>🎉 Kèo sắp tới</h2><button className="link" onClick={() => setSheet({ k: 'newKeo' })}>+ Rủ kèo</button></div>
       <UpcomingKeos c={c} open={openKeo} all={() => { setTab('keo'); setKeoId(null) }} />
     </section>
-    {evs[0] && <section className="section"><h2>Đừng quên</h2><div className="list">{evRow(evs[0])}</div></section>}
+    {evs[0] && <section className="section"><h2>🎂 Đừng quên</h2><div className="list">{evRow(evs[0])}</div></section>}
     <OnThisDay c={c} />
     {setupLeft && <section className="section card">
       <h2>Việc nên làm</h2>
@@ -228,7 +235,9 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
     <nav className="tabs" aria-label="Điều hướng"><div className="in">{([['home', 'Hôm nay'], ['keo', 'Kèo'], ['chat', 'Chat'], ['xom', 'Xóm']] as [Tab, string][]).map(([k, l]) =>
       <button key={k} aria-current={tab === k ? 'page' : undefined} onClick={() => { setTab(k); setKeoId(null) }}><span dangerouslySetInnerHTML={{ __html: ICONS[k] }} style={{ display: 'contents' }} /><span>{l}</span></button>)}</div></nav>
 
-    {c && sheet?.k === 'newKeo' && <NewKeoSheet c={c} onClose={close} onCreated={id => { close(); openKeo(id) }} />}
+    {c && sheet?.k === 'house' && (() => { const f = d.families.find(x => x.id === sheet.id); return f && <HouseSheet c={c} f={f} onClose={close}
+      invite={title => setSheet({ k: 'newKeo', preset: { type: title.startsWith('Bia') ? 'bia' : 'cafe', title } })} editChibi={() => setSheet({ k: 'chibi', id: me.id })} /> })()}
+    {c && sheet?.k === 'newKeo' && <NewKeoSheet c={c} preset={sheet.preset} onClose={close} onCreated={id => { close(); openKeo(id) }} />}
     {c && sheet?.k === 'newHost' && <NewHostSheet c={c} open={sheet.open} onClose={close} />}
     {c && sheet?.k === 'poll' && <NewPollSheet c={c} onClose={close} />}
     {c && sheet?.k === 'pin' && <PinSheet c={c} onClose={close} />}
