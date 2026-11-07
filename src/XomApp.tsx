@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { sb, errText, loadXom, myXomIds, type Family, type XomData } from './supabase'
+import { sb, errText, loadXom, myXomIds, type Family, type Member, type XomData } from './supabase'
 import { DOW, adultsOf, dayDiff, dm, famShort, inviteUrl, kidsOf, lookOf, navigate, upcoming, type Ev } from './util'
 import { Brand, Chibi, FamilyHeads, MemberHead, Sheet, copyText, useToast } from './ui'
 import { FamilyForm } from './FamilyForm'
@@ -76,7 +76,8 @@ function NoXom({ session, onCreated }: { session: Session; onCreated: (id: strin
   </div>
 }
 
-type SheetState = null | { k: 'me' } | { k: 'fam' } | { k: 'chibi'; id: string } | { k: 'invite' } | { k: 'link'; code: string; fam: string }
+type LinkItem = { name: string; code: string }
+type SheetState = null | { k: 'me' } | { k: 'fam' } | { k: 'famEdit'; id: string } | { k: 'chibi'; id: string } | { k: 'invite' } | { k: 'link'; items: LinkItem[]; fam: string }
 
 const ICONS: Record<string, string> = {
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg>',
@@ -96,9 +97,10 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
   const close = useCallback(() => setSheet(null), [])
   useEffect(() => { sessionStorage.setItem('xm-tab', tab); scrollTo(0, 0) }, [tab])
 
-  async function reissue(f: Family) {
-    const { data, error } = await sb.rpc('reissue_invite', { p_family: f.id })
-    if (error) toast(errText(error)); else setSheet({ k: 'link', code: data as string, fam: famShort(d, f) })
+  async function personalLink(m: Member) {
+    const { data, error } = await sb.rpc('make_member_invite', { p_member: m.id })
+    const f = d.families.find(x => x.id === m.family_id)!
+    if (error) toast(errText(error)); else setSheet({ k: 'link', items: [{ name: m.name, code: data as string }], fam: famShort(d, f) })
   }
 
   const evRow = (e: Ev) => <div className="row" key={e.label + e.family.id}>
@@ -154,7 +156,8 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
           {mine && <div className="meta">{famShort(d, f)}</div>}
           <div className="meta">{kids.length ? 'Bé ' + kids.map(k => k.name).join(', bé ') : 'Chưa có bé'}</div>
           {adultsOf(d, f).filter(m => m.user_id && m.phone_public && m.phone).map(m => <div key={m.id} className="meta">{m.name}: {m.phone}</div>)}
-          {pend.length > 0 && <div className="pending">{pend.map(m => m.name).join(', ')} chưa vào xóm{(me.is_admin || mine) && <> · <button onClick={() => reissue(f)}>Gửi link mời</button></>}</div>}
+          {pend.map(m => <div key={m.id} className="pending">{m.name} chưa vào xóm{(me.is_admin || mine) && <> · <button onClick={() => personalLink(m)}>Gửi link cho {m.name}</button></>}</div>)}
+          {!mine && me.is_admin && <button className="btn ghost" style={{ minHeight: 44, fontSize: 15 }} onClick={() => setSheet({ k: 'famEdit', id: f.id })}>Sửa hồ sơ</button>}
           {mine && <><button className="btn ghost" style={{ minHeight: 44, fontSize: 15 }} onClick={() => setSheet({ k: 'fam' })}>Sửa hồ sơ</button>
             <button className="btn ghost" style={{ minHeight: 44, fontSize: 15 }} onClick={() => setSheet({ k: 'chibi', id: me.id })}>Chibi cả nhà</button></>}
         </div>
@@ -183,44 +186,88 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
     {sheet?.k === 'chibi' && <Sheet label="Chibi nhà mình" onClose={close}>
       <ChibiEditor members={d.members.filter(m => m.family_id === myFam.id)} startId={sheet.id} onSaved={reload} onClose={close} />
     </Sheet>}
-    {sheet?.k === 'invite' && <Sheet label="Mời gia đình mới" onClose={close}><InviteForm xomId={d.xom.id} onCode={(code, fam) => { reload(); setSheet({ k: 'link', code, fam }) }} /></Sheet>}
-    {sheet?.k === 'link' && <Sheet label="Link mời" onClose={close}><LinkBox code={sheet.code} fam={sheet.fam} xom={d.xom.name} /></Sheet>}
+    {sheet?.k === 'famEdit' && (() => { const f = d.families.find(x => x.id === sheet.id); return f && <Sheet label="Sửa hồ sơ gia đình" onClose={close}>
+      <h2>Hồ sơ nhà {famShort(d, f)}</h2>
+      <p className="sub small" style={{ margin: 0 }}>Trưởng xóm sửa giúp khi nhà này gõ sai tên hoặc chưa kịp điền.</p>
+      <FamilyForm d={d} family={f} ownerId="" submitLabel="Lưu hồ sơ" onDone={() => { toast('Đã lưu hồ sơ nhà ' + famShort(d, f)); close(); reload() }} />
+      <Unclaim d={d} f={f} onDone={reload} />
+    </Sheet> })()}
+    {sheet?.k === 'invite' && <Sheet label="Mời gia đình mới" onClose={close}><InviteForm xomId={d.xom.id} onDone={(items, fam) => { reload(); setSheet({ k: 'link', items, fam }) }} /></Sheet>}
+    {sheet?.k === 'link' && <Sheet label="Link mời" onClose={close}><LinkBox items={sheet.items} fam={sheet.fam} xom={d.xom.name} /></Sheet>}
   </div>
 }
 
-function InviteForm({ xomId, onCode }: { xomId: string; onCode: (code: string, fam: string) => void }) {
+function InviteForm({ xomId, onDone }: { xomId: string; onDone: (items: LinkItem[], fam: string) => void }) {
   const toast = useToast()
-  const [a, setA] = useState(''), [b, setB] = useState(''), [k, setK] = useState('')
+  const [a, setA] = useState(''), [b, setB] = useState(''), [wed, setWed] = useState('')
+  const [kids, setKids] = useState<{ key: string; name: string; dob: string }[]>([])
   const [busy, setBusy] = useState(false)
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true)
-    const { data, error } = await sb.rpc('invite_family', { p_xom: xomId, p_adults: [a.trim(), b.trim()].filter(Boolean), p_kids: k.split(',').map(s => s.trim()).filter(Boolean) })
+    const adults = [a.trim(), b.trim()].filter(Boolean)
+    const { data, error } = await sb.rpc('invite_family2', {
+      p_xom: xomId, p_adults: adults, p_wedding: wed || null,
+      p_kids: kids.filter(k => k.name.trim()).map(k => ({ name: k.name.trim(), dob: k.dob || null })),
+    })
     setBusy(false)
-    if (error) toast(errText(error)); else onCode(data as string, [a.trim(), b.trim()].filter(Boolean).join(' & '))
+    if (error) toast(errText(error))
+    else onDone((data as { name: string; code: string }[]).map(x => ({ name: x.name, code: x.code })), adults.join(' & '))
   }
   return <form className="stackf" onSubmit={submit}>
     <h2>Mời một gia đình mới</h2>
-    <p className="sub small" style={{ margin: 0 }}>Điền những gì bạn biết. Vợ chồng nhà đó sẽ tự sửa và bổ sung khi vào bằng link.</p>
+    <p className="sub small" style={{ margin: 0 }}>Điền sẵn những gì bạn biết về nhà bạn bè. Mỗi người lớn sẽ có một link riêng, mở ra là đúng tên mình, không thể nhầm.</p>
     <div className="two"><label className="f">Tên chồng<input required maxLength={40} value={a} onChange={e => setA(e.target.value)} placeholder="VD: Hùng" /></label>
       <label className="f">Tên vợ<input maxLength={40} value={b} onChange={e => setB(e.target.value)} placeholder="VD: Lan" /></label></div>
-    <label className="f">Tên các bé, cách nhau bằng dấu phẩy<input maxLength={120} value={k} onChange={e => setK(e.target.value)} placeholder="VD: Su" /></label>
+    <label className="f">Ngày cưới (nếu biết)<input type="date" value={wed} onChange={e => setWed(e.target.value)} /></label>
+    <div className="group-title">Các bé</div>
+    {kids.map((k, i) => <div className="kid-row" key={k.key}>
+      <input aria-label="Tên bé" placeholder="Tên bé" maxLength={40} value={k.name} onChange={e => setKids(kids.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+      <input aria-label="Ngày sinh của bé (nếu biết)" type="date" value={k.dob} onChange={e => setKids(kids.map((x, j) => j === i ? { ...x, dob: e.target.value } : x))} />
+      <button type="button" aria-label="Bỏ bé này" onClick={() => setKids(kids.filter((_, j) => j !== i))}>×</button>
+    </div>)}
+    <button type="button" className="btn ghost" onClick={() => setKids([...kids, { key: 'k' + Date.now(), name: '', dob: '' }])}>+ Thêm bé</button>
     <button className="btn" type="submit" disabled={busy}>{busy ? 'Đang tạo…' : 'Tạo link mời'}</button>
   </form>
 }
 
-function LinkBox({ code, fam, xom }: { code: string; fam: string; xom: string }) {
+function LinkBox({ items, fam, xom }: { items: LinkItem[]; fam: string; xom: string }) {
   const toast = useToast()
-  const url = inviteUrl(code)
-  const msg = `Mời nhà ${fam} vào ${xom} của hội mình nhé! Bấm link, chọn tên mình là xong: ${url}`
-  async function share() {
+  const msgOf = (it: LinkItem) => `Chào ${it.name}! Mời ${it.name} vào ${xom} của hội mình nhé. Bấm link, đăng nhập là xong: ${inviteUrl(it.code)}`
+  async function share(it: LinkItem) {
+    const msg = msgOf(it)
     if (navigator.share) { try { await navigator.share({ text: msg }); return } catch { /* người dùng huỷ */ } }
-    toast(await copyText(msg) ? 'Đã sao chép, dán vào Zalo là xong' : 'Bấm giữ đoạn chữ để sao chép')
+    toast(await copyText(msg) ? `Đã sao chép, dán vào Zalo của ${it.name} là xong` : 'Bấm giữ đoạn chữ để sao chép')
   }
   return <>
-    <h2>Link mời nhà {fam}</h2>
-    <p className="sub small" style={{ margin: 0 }}>Link riêng cho nhà này, dùng được cho 2 người lớn, hết hạn sau 7 ngày ({dm(new Date(Date.now() + 7 * 864e5))}).</p>
-    <div className="linkbox">{msg}</div>
-    <button className="btn" onClick={share}>Gửi lời mời</button>
-    <button className="btn ghost" onClick={async () => toast(await copyText(url) ? 'Đã sao chép link' : 'Bấm giữ link để sao chép')}>Chỉ sao chép link</button>
+    <h2>{items.length > 1 ? 'Link mời nhà ' + fam : 'Link mời ' + items[0]?.name}</h2>
+    <p className="sub small" style={{ margin: 0 }}>Mỗi link chỉ dành cho đúng một người, dùng một lần, hết hạn ngày {dm(new Date(Date.now() + 7 * 864e5))}. Gửi đúng link cho đúng người nhé.</p>
+    {items.map(it => <div key={it.code} className="stackf" style={{ gap: 8 }}>
+      <div className="group-title">Link của {it.name}</div>
+      <div className="linkbox">{msgOf(it)}</div>
+      <div className="two">
+        <button className="btn" onClick={() => share(it)}>Gửi cho {it.name}</button>
+        <button className="btn ghost" onClick={async () => toast(await copyText(inviteUrl(it.code)) ? 'Đã sao chép link của ' + it.name : 'Bấm giữ link để sao chép')}>Chép link</button>
+      </div>
+    </div>)}
   </>
+}
+
+function Unclaim({ d, f, onDone }: { d: XomData; f: Family; onDone: () => void }) {
+  const toast = useToast()
+  const [ask, setAsk] = useState<string | null>(null)
+  const claimed = adultsOf(d, f).filter(m => m.user_id)
+  if (!claimed.length) return null
+  async function go(id: string) {
+    const { error } = await sb.rpc('unclaim_member', { p_member: id })
+    setAsk(null)
+    if (error) toast(errText(error)); else { toast('Đã gỡ. Gửi link mới cho đúng người nhé'); onDone() }
+  }
+  return <div className="stackf" style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+    <div className="group-title">Nhận nhầm tên?</div>
+    <p className="sub small" style={{ margin: 0 }}>Nếu ai đó vào nhầm tên, gỡ tài khoản khỏi tên đó rồi gửi link mới cho đúng người.</p>
+    {claimed.map(m => ask === m.id
+      ? <div key={m.id} className="stackf" style={{ gap: 8 }}><div className="note">Gỡ tài khoản đang dùng tên <b>{m.name}</b>? Người đó sẽ ra khỏi xóm cho đến khi nhận lại bằng link mới.</div>
+          <div className="two"><button className="btn ghost" onClick={() => setAsk(null)}>Thôi</button><button className="btn danger" onClick={() => go(m.id)}>Gỡ</button></div></div>
+      : <button key={m.id} className="btn ghost" onClick={() => setAsk(m.id)}>Gỡ tài khoản khỏi tên {m.name}</button>)}
+  </div>
 }

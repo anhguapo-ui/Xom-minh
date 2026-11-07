@@ -7,7 +7,8 @@ import { readLook } from './chibi'
 import { LoginBox } from './Login'
 import { FamilyForm } from './FamilyForm'
 
-type InviteInfo = { ok: true; xom: string; inviter: string | null; family_count: number; adults: { id: string; name: string; claimed: boolean }[]; kids: string[] }
+type Person = { id: string; name: string; claimed: boolean }
+type InviteInfo = { ok: true; xom: string; inviter: string | null; family_count: number; member: Person | null; adults: { id: string; name: string; claimed: boolean }[]; kids: string[] }
   | { ok: false; reason: 'not_found' | 'revoked' | 'expired' | 'used' }
 
 const PENDING = 'xm-pending-claim'
@@ -46,6 +47,10 @@ export function InvitePage({ code, session }: { code: string; session: Session |
     setData(await loadXom(xomId as string))
     setStep('profile')
   }, [code, toast])
+
+  useEffect(() => {
+    if (info?.ok && info.member && !info.member.claimed && !session) localStorage.setItem(PENDING, JSON.stringify({ code, member: info.member.id }))
+  }, [info, session, code])
 
   // Quay lại sau khi đăng nhập Google/email: tự nhận tên đã chọn trước đó
   useEffect(() => {
@@ -87,6 +92,21 @@ export function InvitePage({ code, session }: { code: string; session: Session |
       <LoginBox redirectTo={location.origin + '/moi/' + code} />
       <button className="link" onClick={() => { localStorage.removeItem(PENDING); setStep('who') }}>‹ Chọn lại người</button>
     </div>
+  } else if (info.member) {
+    const p = info.member
+    body = p.claimed
+      ? <div className="claim"><h1>Link này đã được dùng</h1><p className="sub">{p.name} đã vào xóm bằng link này. Nếu đó không phải bạn, nhắn trưởng xóm gỡ ra và gửi link mới nhé.</p>
+          <button className="btn ghost" onClick={() => navigate('/')}>Về trang chủ</button></div>
+      : <div className="claim">{bar(1)}
+        <div className="hello"><h1>Chào {p.name}!</h1>
+          <p>{info.inviter || 'Bạn bè'} mời {p.name} vào <b>{info.xom}</b>{info.family_count > 1 ? `, nơi ${info.family_count - 1} gia đình bạn bè` : ''} rủ nhau cafe, ăn uống và chia sẻ chuyện nhà.</p></div>
+        {session
+          ? <><p className="sub">Bạn đang đăng nhập bằng {session.user.email}.</p><button className="btn" onClick={() => claim(p.id)}>Nhận tên {p.name} và vào xóm</button>
+              <button className="link" onClick={() => sb.auth.signOut()}>Không phải tài khoản của {p.name}? Đăng xuất</button></>
+          : <><p className="sub">Đăng nhập một lần, lần sau mở app là vào thẳng.</p>
+              <LoginBox redirectTo={location.origin + '/moi/' + code} /></>}
+        <p className="sub small">Không phải {p.name}? Link này là link riêng, nhắn người mời gửi đúng link của bạn nhé.</p>
+      </div>
   } else body = <div className="claim">{bar(1)}
     <div className="hello"><h1>Chào nhà {info.adults.map(a => a.name).join(' & ')}!</h1>
       <p>{info.inviter || 'Bạn bè'} mời cả nhà vào <b>{info.xom}</b>{info.family_count > 1 ? `, nơi ${info.family_count - 1} gia đình bạn bè` : ', nơi các gia đình bạn bè'} rủ nhau cafe, ăn uống và chia sẻ chuyện nhà.</p></div>

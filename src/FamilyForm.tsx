@@ -10,7 +10,7 @@ export function FamilyForm({ d, family, ownerId, submitLabel, onDone }:
   { d: XomData; family: Family; ownerId: string; submitLabel: string; onDone: () => void }) {
   const toast = useToast()
   const adults = adultsOf(d, family)
-  const owner = adults.find(m => m.id === ownerId) || adults[0]
+  const owner = adults.find(m => m.id === ownerId) // không có = trưởng xóm sửa giúp nhà khác
   const [names, setNames] = useState(Object.fromEntries(adults.map(m => [m.id, m.name])))
   const [dobs, setDobs] = useState(Object.fromEntries(adults.map(m => [m.id, m.dob || ''])))
   const [phone, setPhone] = useState(owner?.phone || '')
@@ -52,8 +52,10 @@ export function FamilyForm({ d, family, ownerId, submitLabel, onDone }:
       <label className="f">Tên{m.id === owner?.id ? ' (bạn)' : ''}<input required maxLength={40} value={names[m.id]} onChange={e => setNames({ ...names, [m.id]: e.target.value })} /></label>
       <label className="f">Ngày sinh<input type="date" value={dobs[m.id]} onChange={e => setDobs({ ...dobs, [m.id]: e.target.value })} /></label>
     </div>)}
-    <label className="f">Số điện thoại của {owner?.name}<input type="tel" inputMode="tel" maxLength={20} placeholder="09xx xxx xxx" value={phone} onChange={e => setPhone(e.target.value)} /></label>
-    <label className="check"><input type="checkbox" checked={phonePub} onChange={e => setPhonePub(e.target.checked)} /> Cho cả xóm thấy số điện thoại</label>
+    {owner && <>
+      <label className="f">Số điện thoại của {owner.name}<input type="tel" inputMode="tel" maxLength={20} placeholder="09xx xxx xxx" value={phone} onChange={e => setPhone(e.target.value)} /></label>
+      <label className="check"><input type="checkbox" checked={phonePub} onChange={e => setPhonePub(e.target.checked)} /> Cho cả xóm thấy số điện thoại</label>
+    </>}
     <label className="f">Ngày cưới<input type="date" value={wed} onChange={e => setWed(e.target.value)} /></label>
     <div className="group-title">Các bé</div>
     <p className="sub small" style={{ margin: 0 }}>Các bé không cần tài khoản. Ngày sinh sẽ tự hiện ở mục "Sắp tới" để cả xóm nhớ chúc.</p>
