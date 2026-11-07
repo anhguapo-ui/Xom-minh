@@ -27,7 +27,7 @@ export async function saveCheckin(c: Ctx, k: string) {
   const { error } = await sb.from('checkins').upsert({ xom_id: c.d.xom.id, member_id: c.me.id, day: dayKey(), status: k, updated_at: new Date().toISOString() }, { onConflict: 'member_id,day' })
   if (error) return { ok: false, msg: errText(error) }
   c.reload()
-  return { ok: true, msg: first ? `Điểm danh xong! Chuỗi ${streak + (c.live.myDays.includes(dayKey()) ? 0 : 1)} ngày 🔥` : 'Đã đổi trạng thái' }
+  return { ok: true, msg: first ? `Điểm danh xong!${c.live.xu ? ' +5 Xu Lộc 🪙' : ''} Chuỗi ${streak + (c.live.myDays.includes(dayKey()) ? 0 : 1)} ngày 🔥` : 'Đã đổi trạng thái' }
 }
 
 export function CheckinCard({ c }: { c: Ctx }) {

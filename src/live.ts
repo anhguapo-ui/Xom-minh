@@ -13,7 +13,12 @@ export type PollVote = { poll_id: string; member_id: string; option: number }
 export type Offering = { id: string; member_id: string; offerings: string[]; created_at: string }
 export type Wish = { offering_id: string; member_id: string; wish: string; private: boolean }
 export type XamDraw = { id: string; n: number; topic: string; shared: boolean; day: string }
+export type Xu = {
+  balance: Record<string, number>; week: Record<string, number>; today: { member_id: string; kind: string; amount: number }[]
+  water: number; goal: number; tree_done: boolean; decor: { family_id: string; item: string; shown: boolean }[]
+}
 export type Live = {
+  xu: Xu | null
   altar: Offering[]; wishes: Wish[]; myXam: XamDraw | null
   today: Checkin[]; myDays: string[]; keos: Keo[]; keoRsvps: KeoRsvp[]; hosts: Host[]; hostRsvps: HostRsvp[]
   messages: Message[]; poll: Poll | null; votes: PollVote[]; pin: { text: string; member: string | null } | null
@@ -25,7 +30,7 @@ async function fetchLive(xomId: string, meId: string): Promise<Live> {
   const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString()
   const since = new Date(Date.now() - 6 * 3600e3).toISOString()
   const d90 = dayKey(new Date(Date.now() - 90 * 864e5))
-  const [today, mine, keos, hosts, msgs, polls, xom, altar, xam] = await Promise.all([
+  const [today, mine, keos, hosts, msgs, polls, xom, altar, xam, xu] = await Promise.all([
     sb.from('checkins').select('*').eq('xom_id', xomId).eq('day', dayKey()),
     sb.from('checkins').select('day').eq('member_id', meId).gte('day', d90),
     sb.from('keos').select('*').eq('xom_id', xomId).eq('cancelled', false).gte('at', since).order('at'),
@@ -35,6 +40,7 @@ async function fetchLive(xomId: string, meId: string): Promise<Live> {
     sb.from('xoms').select('pin_text,pin_member').eq('id', xomId).single(),
     sb.from('altar_offerings').select('id,member_id,offerings,created_at').eq('xom_id', xomId).eq('day', dayKey()).order('created_at'),
     sb.from('xam_draws').select('id,n,topic,shared,day').eq('member_id', meId).eq('day', dayKey()).maybeSingle(),
+    sb.rpc('xom_xu', { p_xom: xomId }), // chưa chạy SQL 0008 thì bỏ qua, không báo lỗi
   ])
   for (const r of [today, mine, keos, hosts, msgs, polls]) if (r.error) throw r.error
   const keoIds = (keos.data || []).map(k => k.id), hostIds = (hosts.data || []).map(h => h.id)
@@ -47,6 +53,7 @@ async function fetchLive(xomId: string, meId: string): Promise<Live> {
     poll ? sb.from('poll_votes').select('poll_id,member_id,option').eq('poll_id', poll.id) : Promise.resolve({ data: [], error: null }),
   ])
   return {
+    xu: xu.error ? null : xu.data as Xu,
     today: today.data as Checkin[], myDays: (mine.data || []).map(r => r.day as string),
     keos: keos.data as Keo[], keoRsvps: (kr.data || []) as KeoRsvp[],
     hosts: hosts.data as Host[], hostRsvps: (hr.data || []) as HostRsvp[],
@@ -56,7 +63,7 @@ async function fetchLive(xomId: string, meId: string): Promise<Live> {
   }
 }
 
-const TABLES = ['join_requests', 'photos', 'photo_likes', 'help_posts', 'help_responses', 'altar_offerings', 'checkins', 'keos', 'keo_rsvps', 'hosts', 'host_rsvps', 'messages', 'polls', 'poll_votes']
+const TABLES = ['xu_events', 'family_decor', 'join_requests', 'photos', 'photo_likes', 'help_posts', 'help_responses', 'altar_offerings', 'checkins', 'keos', 'keo_rsvps', 'hosts', 'host_rsvps', 'messages', 'polls', 'poll_votes']
 
 // Dữ liệu hoạt động của xóm, tự cập nhật khi có thay đổi (Supabase Realtime)
 export function useLive(xomId: string, meId: string, onError: (e: unknown) => void) {

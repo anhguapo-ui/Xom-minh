@@ -35,6 +35,19 @@ export function GateCard({ c, enter }: { c: Ctx; enter: () => void }) {
   </button>
 }
 
+// Lối tắt vào miếu, nằm ngay dưới Phố xóm
+export function MieuStrip({ c, enter }: { c: Ctx; enter: () => void }) {
+  const n = findLunar(new Date(), l => l.d === 1 || l.d === 15)
+  const fest = !!n && n.days <= 1, iLit = c.live.altar.some(a => a.member_id === c.me.id)
+  const lbl = (x: number) => x === 1 ? 'mùng 1' : 'rằm'
+  const when = !n ? '' : n.days === 0 ? 'Hôm nay ' + lbl(n.l.d) + '!' : n.days === 1 ? 'Mai là ' + lbl(n.l.d) : 'còn ' + n.days + ' ngày đến ' + lbl(n.l.d)
+  return <button className={'mieu-strip' + (fest ? ' fest' : '')} onClick={enter}>
+    <span className="ms-ic" aria-hidden="true">🏮</span>
+    <span className="grow"><b>Miếu Thần Tài</b><span className="ms-meta">{litFamilies(c).length}/{c.d.families.length} nhà đã thắp hương · {when}</span></span>
+    <span className="ms-go">{iLit ? 'Vào' : 'Thắp hương'} ›</span>
+  </button>
+}
+
 export function Temple({ c, enter, back }: { c: Ctx; enter: boolean; back: () => void }) {
   const toast = useToast()
   const host = useRef<HTMLDivElement>(null)

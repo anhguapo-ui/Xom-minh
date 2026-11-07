@@ -101,3 +101,49 @@ nav.tabs .in{grid-template-columns:repeat(4,1fr)}
 @keyframes dogwalk{0%{left:96%;transform:scaleX(1)}48%{left:1%;transform:scaleX(1)}50%{left:1%;transform:scaleX(-1)}98%{left:96%;transform:scaleX(-1)}100%{left:96%;transform:scaleX(1)}}
 .st-help{margin:6px 0 0;text-align:center;font-size:13px;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){.street *{animation:none!important}}
+
+/* Lối tắt miếu */
+.mieu-strip{display:flex;align-items:center;gap:12px;width:100%;margin-top:12px;padding:10px 14px;border:0;border-radius:16px;text-align:left;font:inherit;
+  background:linear-gradient(120deg,#6B1D16,#3E120D);color:#F6E3C2;box-shadow:var(--shadow)}
+.mieu-strip .ms-ic{font-size:26px}
+.mieu-strip .grow{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.mieu-strip .ms-meta{font-size:13px;opacity:.85}
+.mieu-strip .ms-go{font-weight:800;color:#FFD66B;white-space:nowrap}
+.mieu-strip.fest{background:linear-gradient(120deg,#C2261B,#E8962A);animation:festglow 1.8s ease-in-out infinite}
+@keyframes festglow{50%{box-shadow:0 0 18px rgba(255,190,80,.8)}}
+
+/* Đồ trang trí trên phố */
+.dc{position:absolute;z-index:3;font-size:18px;line-height:1}
+.dc-hoa{left:0;bottom:24px}
+.dc-xe_dap{left:22px;bottom:26px;font-size:20px}
+.dc-ga{right:0;bottom:22px;transform:scaleX(-1)}
+.dc-chuong{left:26px;bottom:74px;font-size:15px;transform-origin:top;animation:swing 2s ease-in-out infinite}
+.dc-meo{left:30px;bottom:92px;font-size:17px}
+.dc-dieu{right:2px;bottom:150px;font-size:22px;animation:bob2 3s ease-in-out infinite}
+.dc-oi{position:absolute;z-index:1;right:-14px;bottom:26px;width:36px}
+.dc-oi svg{display:block;width:100%;height:auto}
+.st-lot.gold .st-sign{background:linear-gradient(#FFE58A,#F2C230);color:#5A3A12;border-color:#B4881A;box-shadow:0 2px 0 #B4881A}
+.lights circle{animation:blink 1.4s infinite}
+.lights circle:nth-child(2n){animation-delay:.7s}
+.st-lot.cayda{width:120px}
+.st-lot.cayda .st-house{bottom:24px}
+.st-lot.cayda .st-sign{bottom:132px}
+
+/* Xu Lộc */
+.xu-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;background:var(--sun-soft);color:var(--sun-ink);border-radius:14px;padding:8px 12px}
+.xu-big{font-family:var(--f-display);font-size:34px;font-weight:800;color:var(--sun-ink);background:var(--sun-soft);border-radius:16px;padding:6px 14px;display:flex;align-items:baseline;gap:8px}
+.xu-big small{font-family:var(--f-body);font-size:14px;font-weight:600}
+.decor-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.decor{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);font:inherit;text-align:center;min-height:112px}
+.decor .de{font-size:28px;line-height:1.2}
+.decor .dt{font-size:13px;font-weight:600;line-height:1.25}
+.decor .dp{font-size:12.5px;font-weight:800;color:var(--sun-ink);margin-top:auto}
+.decor.has{border-color:var(--accent)}
+.decor.on{background:var(--accent-soft)}
+.decor.on .dp{color:var(--accent)}
+.decor:disabled{opacity:.45}
+.decor.has:disabled{opacity:1}
+.tree-hero{width:180px;margin:0 auto}
+.tree-hero svg{display:block;width:100%;height:auto}
+.tree-bar{height:14px;border-radius:99px;background:var(--line);overflow:hidden}
+.tree-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#6DAA47,#F2A33A);transition:width .6s}

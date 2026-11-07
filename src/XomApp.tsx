@@ -8,8 +8,8 @@ import { ChibiEditor } from './ChibiEditor'
 import { useLive } from './live'
 import { FREE } from './consts'
 import { toLunar, findLunar, lunarName } from './lunar'
-import { Temple } from './Temple'
-import { Street, HouseSheet } from './Street'
+import { Temple, MieuStrip } from './Temple'
+import { Street, HouseSheet, DecorSheet, TreeSheet } from './Street'
 import { AlbumTab, OnThisDay } from './Album'
 import { HelpTab } from './Help'
 import { JoinAdmin } from './JoinAdmin'
@@ -88,7 +88,7 @@ function NoXom({ session, onCreated }: { session: Session; onCreated: (id: strin
 }
 
 type LinkItem = { name: string; code: string }
-type SheetState = null | { k: 'newKeo'; preset?: { type: string; title: string } } | { k: 'house'; id: string } | { k: 'newHost'; open: boolean } | { k: 'poll' } | { k: 'pin' } | { k: 'me' } | { k: 'fam' } | { k: 'famEdit'; id: string } | { k: 'chibi'; id: string } | { k: 'invite' } | { k: 'link'; items: LinkItem[]; fam: string }
+type SheetState = null | { k: 'newKeo'; preset?: { type: string; title: string } } | { k: 'house'; id: string } | { k: 'decor' } | { k: 'tree' } | { k: 'newHost'; open: boolean } | { k: 'poll' } | { k: 'pin' } | { k: 'me' } | { k: 'fam' } | { k: 'famEdit'; id: string } | { k: 'chibi'; id: string } | { k: 'invite' } | { k: 'link'; items: LinkItem[]; fam: string }
 
 const ICONS: Record<string, string> = {
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg>',
@@ -156,9 +156,10 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
     <div className="greet"><h1>{greet(now.getHours())}, {me.name}! 👋</h1>
       <p className="sub">{DOW[now.getDay()]}, {now.getDate()}/{now.getMonth() + 1} · {lunarName(L)} âm lịch{nextLe ? ' · ' + (nextLe.days === 0 ? 'hôm nay là ' + (nextLe.l.d === 1 ? 'mùng 1' : 'ngày rằm') : 'còn ' + nextLe.days + ' ngày đến ' + (nextLe.l.d === 1 ? 'mùng 1' : 'rằm')) : ''}</p>
       <p className="greet-line">{freeFams ? `Hôm nay xóm có ${freeFams} nhà đang rảnh 🎉` : 'Phố còn vắng, ra cửa điểm danh làm gương nhé!'}</p></div>
-    <Street c={c} openFamily={f => setSheet({ k: 'house', id: f.id })} openMieu={() => { setEnterMieu(true); setTab('mieu') }}
+    <Street c={c} openFamily={f => setSheet({ k: 'house', id: f.id })} openTree={() => setSheet({ k: 'tree' })} openMieu={() => { setEnterMieu(true); setTab('mieu') }}
       openQuan={() => { const k = c.live.keos.find(x => dayDiff(new Date(x.at)) === 0); if (k) openKeo(k.id); else setSheet({ k: 'newKeo' }) }} />
     <p className="st-help">Vuốt ngang để dạo phố · bấm vào nhà để rủ rê</p>
+    <MieuStrip c={c} enter={() => { setEnterMieu(true); setTab('mieu') }} />
     <CheckinCard c={c} />
     <NotifyCard memberId={me.id} xomId={d.xom.id} />
     <FreeList c={c} />
@@ -236,7 +237,9 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
       <button key={k} aria-current={tab === k ? 'page' : undefined} onClick={() => { setTab(k); setKeoId(null) }}><span dangerouslySetInnerHTML={{ __html: ICONS[k] }} style={{ display: 'contents' }} /><span>{l}</span></button>)}</div></nav>
 
     {c && sheet?.k === 'house' && (() => { const f = d.families.find(x => x.id === sheet.id); return f && <HouseSheet c={c} f={f} onClose={close}
-      invite={title => setSheet({ k: 'newKeo', preset: { type: title.startsWith('Bia') ? 'bia' : 'cafe', title } })} editChibi={() => setSheet({ k: 'chibi', id: me.id })} /> })()}
+      invite={title => setSheet({ k: 'newKeo', preset: { type: title.startsWith('Bia') ? 'bia' : 'cafe', title } })} editChibi={() => setSheet({ k: 'chibi', id: me.id })} decor={() => setSheet({ k: 'decor' })} /> })()}
+    {c && sheet?.k === 'decor' && <DecorSheet c={c} onClose={close} />}
+    {c && sheet?.k === 'tree' && <TreeSheet c={c} onClose={close} />}
     {c && sheet?.k === 'newKeo' && <NewKeoSheet c={c} preset={sheet.preset} onClose={close} onCreated={id => { close(); openKeo(id) }} />}
     {c && sheet?.k === 'newHost' && <NewHostSheet c={c} open={sheet.open} onClose={close} />}
     {c && sheet?.k === 'poll' && <NewPollSheet c={c} onClose={close} />}
