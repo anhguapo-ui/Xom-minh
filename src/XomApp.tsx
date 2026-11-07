@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { sb, errText, loadXom, myXomIds, type Family, type Member, type XomData } from './supabase'
 import { DOW, adultsOf, dayDiff, dm, famShort, inviteUrl, kidsOf, lookOf, navigate, upcoming, type Ev } from './util'
-import { Brand, Chibi, FamilyHeads, MemberHead, Sheet, copyText, useToast } from './ui'
+import { Brand, Chibi, FamilyHeads, MemberHead, Sheet, copyText, useToast, useBack, BackBar } from './ui'
 import { FamilyForm } from './FamilyForm'
 import { ChibiEditor } from './ChibiEditor'
 import { useLive } from './live'
@@ -116,6 +116,11 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
     return () => { sb.removeChannel(ch) }
   }, [d.xom.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const openKeo = (id: string) => { setTab('keo'); setKeoSub('keo'); setKeoId(id) }
+  // Nút Back của điện thoại: chi tiết kèo, miếu, các mục con
+  useBack(!!keoId, () => setKeoId(null))
+  useBack(tab === 'mieu', () => { setEnterMieu(false); setTab('home') })
+  useBack(tab === 'keo' && !keoId && keoSub === 'host', () => setKeoSub('keo'))
+  useBack(tab === 'xom' && xomSub !== 'fam', () => setXomSub('fam'))
 
   async function personalLink(m: Member) {
     const { data, error } = await sb.rpc('make_member_invite', { p_member: m.id })
@@ -173,6 +178,7 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
       <button aria-pressed={keoSub === 'keo'} onClick={() => setKeoSub('keo')}>Kèo</button>
       <button aria-pressed={keoSub === 'host'} onClick={() => setKeoSub('host')}>Đăng cai{c.live.hosts.filter(h => !h.family_id && new Date(h.at).getTime() > Date.now()).length > 0 && <span className="pipin">{c.live.hosts.filter(h => !h.family_id && new Date(h.at).getTime() > Date.now()).length}</span>}</button>
     </div>
+    {keoSub === 'host' && <BackBar onBack={() => setKeoSub('keo')} label="Về danh sách kèo" />}
     {keoSub === 'host' ? <Hosts c={c} newHost={open => setSheet({ k: 'newHost', open })} /> : <section className="section">
       <button className="btn sun block" onClick={() => setSheet({ k: 'newKeo' })}>+ Rủ một kèo mới</button>
       {c.live.keos.map(k => <KeoCard key={k.id} c={c} k={k} open={openKeo} />)}
@@ -183,6 +189,7 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
   else if (tab === 'mieu') view = <Temple c={c} enter={enterMieu} back={() => { setEnterMieu(false); setTab('home') }} />
   else if (tab === 'chat') view = <ChatTab c={c} pin={() => setSheet({ k: 'pin' })} />
   else if (xomSub !== 'fam') view = <>
+    <BackBar onBack={() => setXomSub('fam')} label="Về các gia đình" />
     <div><h1>{d.xom.name}</h1></div>
     <XomSeg sub={xomSub} set={setXomSub} />
     {xomSub === 'help' ? <HelpTab c={c} /> : <AlbumTab c={c} />}

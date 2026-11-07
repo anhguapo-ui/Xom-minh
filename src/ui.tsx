@@ -18,16 +18,48 @@ export function Chibi({ look, className = '' }: { look: Look; className?: string
   return <div className={'ch static idle ' + className} dangerouslySetInnerHTML={{ __html: chibiSVG(look) }} />
 }
 
+/* ---------- Nút Back của điện thoại ----------
+   Mỗi khung bật lên / màn con đăng ký một mục lịch sử. Bấm Back thì đóng cái trên cùng
+   thay vì thoát app; đóng bằng nút trên màn hình thì tự gỡ mục lịch sử tương ứng. */
+type BackEntry = { id: number; fn: () => void; popped: boolean }
+const backStack: BackEntry[] = []
+let ignorePops = 0, backSeq = 0
+addEventListener('popstate', () => {
+  if (ignorePops > 0) { ignorePops--; return }
+  const top = backStack.pop()
+  if (top) { top.popped = true; top.fn() }
+})
+export function useBack(active: boolean, onBack: () => void) {
+  const fn = useRef(onBack); fn.current = onBack
+  useEffect(() => {
+    if (!active) return
+    const e: BackEntry = { id: ++backSeq, fn: () => fn.current(), popped: false }
+    backStack.push(e); history.pushState({ xmBack: e.id }, '')
+    return () => {
+      const i = backStack.indexOf(e)
+      if (i >= 0) backStack.splice(i, 1)
+      if (!e.popped) { ignorePops++; history.back() }
+    }
+  }, [active])
+}
+
+export function BackBar({ onBack, label = 'Quay lại' }: { onBack: () => void; label?: string }) {
+  return <button className="back" onClick={onBack}>‹ {label}</button>
+}
+
 export function Sheet({ onClose, children, label }: { onClose: () => void; children: ReactNode; label: string }) {
   const ref = useRef<HTMLDivElement>(null)
+  useBack(true, onClose)
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', k)
-    ref.current?.querySelector<HTMLElement>('input,textarea,select,button')?.focus()
     return () => document.removeEventListener('keydown', k)
   }, [onClose])
   return <div className="scrim" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-    <div className="sheet" role="dialog" aria-modal="true" aria-label={label} ref={ref}>{children}</div>
+    <div className="sheet" role="dialog" aria-modal="true" aria-label={label} ref={ref}>
+      <div className="sheet-bar"><button className="sheet-back" onClick={onClose}>‹ Quay lại</button><span className="sheet-title">{label}</span></div>
+      {children}
+    </div>
   </div>
 }
 

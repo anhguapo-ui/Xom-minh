@@ -146,3 +146,29 @@ export function photoToDataUrl(file: File): Promise<string> {
     r.readAsDataURL(file)
   })
 }
+
+// Dáng sau lưng: dùng khi đứng khấn quay mặt vào ban thờ (chỉ thấy gáy tóc, tay chắp phía trước)
+export function chibiBackSVG(L: Look): string {
+  const hair = L.hairC, longHair = ['long', 'bob', 'pony', 'pigtails'].includes(L.hair)
+  return `<svg viewBox="0 -4 60 92" aria-hidden="true">
+  <ellipse cx="30" cy="85" rx="14" ry="3" fill="rgba(0,0,0,.2)"/>
+  <g class="leg-l"><rect x="23" y="68" width="6" height="14" rx="2" fill="#3A3F55"/><ellipse cx="25.5" cy="82.5" rx="4.6" ry="2.4" fill="#2B2B2B"/></g>
+  <g class="leg-r"><rect x="31" y="68" width="6" height="14" rx="2" fill="#3A3F55"/><ellipse cx="34.5" cy="82.5" rx="4.6" ry="2.4" fill="#2B2B2B"/></g>
+  <g class="upper">
+    <rect x="15" y="49" width="6.5" height="13" rx="3.2" fill="${L.shirt}" transform="rotate(28 18 50)"/>
+    <rect x="38.5" y="49" width="6.5" height="13" rx="3.2" fill="${L.shirt}" transform="rotate(-28 42 50)"/>
+    <path d="M18 49 Q30 45 42 49 L44 71 Q30 74 16 71Z" fill="${L.shirt}"/><path d="M18 49 Q30 45 42 49 L44 71 Q30 74 16 71Z" fill="rgba(0,0,0,.08)"/>
+    <path d="M30 48 L30 71" stroke="rgba(0,0,0,.12)" stroke-width="1"/>
+    <path d="M27.5 32 L25 14 M30 32 L30 12 M32.5 32 L35 14" stroke="#B5442E" stroke-width="1.2"/>
+    <circle cx="25" cy="14" r="1.3" fill="#FF6A3D"/><circle cx="30" cy="12" r="1.3" fill="#FF6A3D"/><circle cx="35" cy="14" r="1.3" fill="#FF6A3D"/>
+    <ellipse cx="8.5" cy="34" rx="3.2" ry="4.2" fill="${L.skin}"/><ellipse cx="51.5" cy="34" rx="3.2" ry="4.2" fill="${L.skin}"/>
+    ${longHair ? `<path d="M7 30 Q6 4 30 4 Q54 4 53 30 L${L.hair === 'bob' ? '53 46 Q30 52 7 46' : '55 58 Q30 62 5 58'}Z" fill="${hair}"/>` : ''}
+    <circle cx="30" cy="30" r="22" fill="${hair}"/>
+    <path d="M14 44 Q30 50 46 44" fill="none" stroke="rgba(0,0,0,.15)" stroke-width="1.2"/>
+    ${L.hair === 'bun' ? `<circle cx="30" cy="9" r="8" fill="${hair}"/>` : ''}
+    ${L.hair === 'pony' ? `<path d="M30 40 Q36 54 30 64 Q24 54 30 40Z" fill="${hair}"/>` : ''}
+    ${L.hair === 'pigtails' ? `<circle cx="8" cy="38" r="7" fill="${hair}"/><circle cx="52" cy="38" r="7" fill="${hair}"/>` : ''}
+    ${L.acc === 'bow' ? `<path d="M30 10 l8 -5 v10z M30 10 l-8 -5 v10z" fill="#E85A8A"/>` : ''}
+    ${L.acc === 'cap' ? `<path d="M7 23 Q7 3 30 3 Q53 3 53 23Z" fill="${L.shirt}"/>` : ''}
+  </g></svg>`
+}
