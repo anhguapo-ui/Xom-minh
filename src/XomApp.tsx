@@ -5,6 +5,9 @@ import { DOW, adultsOf, dayDiff, dm, famShort, inviteUrl, kidsOf, lookOf, naviga
 import { Brand, Chibi, FamilyHeads, MemberHead, Sheet, copyText, useToast } from './ui'
 import { FamilyForm } from './FamilyForm'
 import { ChibiEditor } from './ChibiEditor'
+import { useLive } from './live'
+import { toLunar, findLunar, lunarName } from './lunar'
+import { type Ctx, CheckinCard, FreeList, KeoCard, KeoDetail, NewKeoSheet, Hosts, NewHostSheet, ChatTab, PinSheet, PollCard, NewPollSheet, UpcomingKeos, postWish } from './Activity'
 
 export function Main({ session }: { session: Session }) {
   const toast = useToast()
@@ -77,7 +80,7 @@ function NoXom({ session, onCreated }: { session: Session; onCreated: (id: strin
 }
 
 type LinkItem = { name: string; code: string }
-type SheetState = null | { k: 'me' } | { k: 'fam' } | { k: 'famEdit'; id: string } | { k: 'chibi'; id: string } | { k: 'invite' } | { k: 'link'; items: LinkItem[]; fam: string }
+type SheetState = null | { k: 'newKeo' } | { k: 'newHost'; open: boolean } | { k: 'poll' } | { k: 'pin' } | { k: 'me' } | { k: 'fam' } | { k: 'famEdit'; id: string } | { k: 'chibi'; id: string } | { k: 'invite' } | { k: 'link'; items: LinkItem[]; fam: string }
 
 const ICONS: Record<string, string> = {
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg>',
@@ -95,7 +98,17 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
   const myFam = d.families.find(f => f.id === me.family_id)!
   const famName = (f: Family) => f.id === myFam.id ? 'Nhà mình' : 'Nhà ' + famShort(d, f)
   const close = useCallback(() => setSheet(null), [])
-  useEffect(() => { sessionStorage.setItem('xm-tab', tab); scrollTo(0, 0) }, [tab])
+  const [keoId, setKeoId] = useState<string | null>(null)
+  const [keoSub, setKeoSub] = useState<'keo' | 'host'>('keo')
+  useEffect(() => { sessionStorage.setItem('xm-tab', tab); scrollTo(0, 0) }, [tab, keoId])
+  const onErr = useCallback((e: unknown) => toast(errText(e)), [toast])
+  const { live, reload: reloadLive, tick } = useLive(d.xom.id, me.id, onErr)
+  // Có người vào xóm, đổi hồ sơ, chibi: tải lại danh sách thành viên
+  useEffect(() => {
+    const ch = sb.channel('members-' + d.xom.id).on('postgres_changes', { event: '*', schema: 'public', table: 'members', filter: 'xom_id=eq.' + d.xom.id }, () => reload()).subscribe()
+    return () => { sb.removeChannel(ch) }
+  }, [d.xom.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const openKeo = (id: string) => { setTab('keo'); setKeoSub('keo'); setKeoId(id) }
 
   async function personalLink(m: Member) {
     const { data, error } = await sb.rpc('make_member_invite', { p_member: m.id })
@@ -106,18 +119,34 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
   const evRow = (e: Ev) => <div className="row" key={e.label + e.family.id}>
     <div className="date"><b>{e.date.getDate()}</b><small>th {e.date.getMonth() + 1}</small></div>
     <div className="grow"><div className="name">{e.label}</div><div className="meta">{famName(e.family)} · {dayDiff(e.date) === 0 ? 'hôm nay' : 'còn ' + dayDiff(e.date) + ' ngày'}</div></div>
+    {live && <button className="link" onClick={async () => {
+      const what = e.label.split(' · ')[0].replace(/^Sinh nhật/, 'sinh nhật').replace(/^Kỷ niệm/, 'kỷ niệm').replace(/^Thôi nôi/, 'thôi nôi')
+      const r = await postWish(c!, `🎉 Chúc mừng ${what} nhà ${famShort(d, e.family)}!`)
+      if (r.error) toast(errText(r.error)); else { toast('Đã gửi lời chúc vào kênh chung'); reloadLive() }
+    }}>Chúc</button>}
   </div>
   const joined = d.members.filter(m => m.role === 'adult' && m.user_id).length
   const evs = upcoming(d)
   const now = new Date()
 
+  const c: Ctx | null = live ? { d, live, me, myFam, reload: reloadLive, tick } : null
+  const L = toLunar(now), nextLe = findLunar(now, l => l.d === 1 || l.d === 15)
+  const setupLeft = !me.look || Object.keys(me.look as object).length === 0 || (me.is_admin && d.families.length < 3)
+
   let view
-  if (tab === 'home') view = <>
-    <div><span className="demo-tag">Giai đoạn 1 · đang xây dựng</span>
-      <h1>{DOW[now.getDay()]}, {now.getDate()} tháng {now.getMonth() + 1}</h1>
-      <p className="sub">Chào {me.name}! {d.xom.name} có {d.families.length} gia đình, {joined} người đã vào.</p></div>
-    <section className="section card">
-      <h2>Bắt đầu từ đây</h2>
+  if (!c) view = <p className="sub">Đang tải hoạt động của xóm…</p>
+  else if (tab === 'home') view = <>
+    <div><h1>{DOW[now.getDay()]}, {now.getDate()} tháng {now.getMonth() + 1}</h1>
+      <p className="sub">{lunarName(L)} âm lịch{nextLe ? ' · ' + (nextLe.days === 0 ? 'hôm nay là ' + (nextLe.l.d === 1 ? 'mùng 1' : 'ngày rằm') : 'còn ' + nextLe.days + ' ngày đến ' + (nextLe.l.d === 1 ? 'mùng 1' : 'rằm')) : ''}</p></div>
+    <CheckinCard c={c} />
+    <FreeList c={c} />
+    <section className="section">
+      <div className="section-head"><h2>Kèo sắp tới</h2><button className="link" onClick={() => setSheet({ k: 'newKeo' })}>+ Rủ kèo</button></div>
+      <UpcomingKeos c={c} open={openKeo} all={() => { setTab('keo'); setKeoId(null) }} />
+    </section>
+    {evs[0] && <section className="section"><h2>Đừng quên</h2><div className="list">{evRow(evs[0])}</div></section>}
+    {setupLeft && <section className="section card">
+      <h2>Việc nên làm</h2>
       <div className="list" style={{ boxShadow: 'none' }}>
         <button className="row" style={{ background: 'none', border: 0, textAlign: 'left', width: '100%' }} onClick={() => setSheet({ k: 'chibi', id: me.id })}>
           <MemberHead m={me} /><div className="grow"><div className="name">Tạo chibi cho cả nhà</div><div className="meta">Dùng ảnh thật hoặc tự chọn tóc, áo, kính</div></div></button>
@@ -126,28 +155,28 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
         {me.is_admin && <button className="row" style={{ background: 'none', border: 0, borderTop: '1px solid var(--line)', textAlign: 'left', width: '100%' }} onClick={() => setSheet({ k: 'invite' })}>
           <span className="av" style={{ display: 'grid', placeItems: 'center', fontSize: 20 }}>+</span><div className="grow"><div className="name">Mời các gia đình vào xóm</div><div className="meta">Tạo link mời riêng cho từng nhà</div></div></button>}
       </div>
-    </section>
-    {evs[0] && <section className="section"><h2>Đừng quên</h2><div className="list">{evRow(evs[0])}</div></section>}
-    <section className="section">
-      <h2>Sắp có</h2>
-      <div className="list">
-        <div className="row"><span className="pst">GĐ 2</span><div className="grow">Điểm danh, rủ kèo, đăng cai, chat</div></div>
-        <div className="row"><span className="pst">GĐ 3</span><div className="grow">Miếu Thần Tài, xin xăm, thầy bói</div></div>
-        <div className="row"><span className="pst">GĐ 4</span><div className="grow">Thông báo trên điện thoại</div></div>
-      </div>
-      <a className="btn ghost block" href="/demo/" style={{ textAlign: 'center', textDecoration: 'none', display: 'block' }}>Chơi thử bản demo trong lúc chờ</a>
-    </section>
+    </section>}
   </>
-  else if (tab === 'keo' || tab === 'chat') view = <>
-    <h1>{tab === 'keo' ? 'Kèo của xóm' : 'Kênh chung'}</h1>
-    <div className="note" style={{ marginTop: 14 }}>Phần này đang được xây ở giai đoạn 2. Trong lúc chờ, bạn có thể bấm thử ở bản demo.</div>
-    <a className="btn ghost block" href="/demo/" style={{ marginTop: 14, textAlign: 'center', textDecoration: 'none', display: 'block' }}>Mở bản demo</a>
+  else if (tab === 'keo') view = keoId ? <KeoDetail c={c} id={keoId} back={() => setKeoId(null)} /> : <>
+    <div><h1>Kèo của xóm</h1><p className="sub">{c.live.keos.length} kèo đang mở · {c.live.keos.filter(k => k.locked_at).length} kèo đã chốt</p></div>
+    <div className="seg" role="group" aria-label="Chọn mục">
+      <button aria-pressed={keoSub === 'keo'} onClick={() => setKeoSub('keo')}>Kèo</button>
+      <button aria-pressed={keoSub === 'host'} onClick={() => setKeoSub('host')}>Đăng cai{c.live.hosts.filter(h => !h.family_id && new Date(h.at).getTime() > Date.now()).length > 0 && <span className="pipin">{c.live.hosts.filter(h => !h.family_id && new Date(h.at).getTime() > Date.now()).length}</span>}</button>
+    </div>
+    {keoSub === 'host' ? <Hosts c={c} newHost={open => setSheet({ k: 'newHost', open })} /> : <section className="section">
+      <button className="btn sun block" onClick={() => setSheet({ k: 'newKeo' })}>+ Rủ một kèo mới</button>
+      {c.live.keos.map(k => <KeoCard key={k.id} c={c} k={k} open={openKeo} />)}
+      {!c.live.keos.length && <div className="note">Chưa có kèo nào. Rủ một kèo đầu tiên đi!</div>}
+      <p className="sub small">Kèo tự chuyển sang "Chốt kèo!" khi đủ số người tối thiểu. Bấm vào kèo để xem ai đi và bàn thêm.</p>
+    </section>}
   </>
+  else if (tab === 'chat') view = <ChatTab c={c} pin={() => setSheet({ k: 'pin' })} />
   else view = <>
     <div><h1>{d.xom.name}</h1><p className="sub">{d.families.length} gia đình · {joined} người lớn đã vào · {d.members.filter(m => m.role === 'kid').length} bạn nhỏ</p></div>
     <section className="section"><div className="section-head"><h2>Sắp tới</h2><span className="sub small">45 ngày tới</span></div>
       <div className="list">{evs.length ? evs.map(evRow) : <div className="row"><span className="sub">Chưa có ngày đặc biệt nào. Điền ngày sinh trong hồ sơ để cả xóm nhớ chúc nhé.</span></div>}</div>
     </section>
+    <PollCard c={c} create={() => setSheet({ k: 'poll' })} />
     <section className="section"><div className="section-head"><h2>Các gia đình</h2>{me.is_admin && <button className="link" onClick={() => setSheet({ k: 'invite' })}>+ Mời nhà mới</button>}</div>
       <div className="fam-grid">{[...d.families].sort((a, b) => Number(b.id === myFam.id) - Number(a.id === myFam.id)).map(f => {
         const mine = f.id === myFam.id, pend = adultsOf(d, f).filter(m => !m.user_id), kids = kidsOf(d, f)
@@ -171,8 +200,12 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
     </header>
     <main className="view">{view}</main>
     <nav className="tabs" aria-label="Điều hướng"><div className="in">{([['home', 'Hôm nay'], ['keo', 'Kèo'], ['chat', 'Chat'], ['xom', 'Xóm']] as [Tab, string][]).map(([k, l]) =>
-      <button key={k} aria-current={tab === k ? 'page' : undefined} onClick={() => setTab(k)}><span dangerouslySetInnerHTML={{ __html: ICONS[k] }} style={{ display: 'contents' }} /><span>{l}</span></button>)}</div></nav>
+      <button key={k} aria-current={tab === k ? 'page' : undefined} onClick={() => { setTab(k); setKeoId(null) }}><span dangerouslySetInnerHTML={{ __html: ICONS[k] }} style={{ display: 'contents' }} /><span>{l}</span></button>)}</div></nav>
 
+    {c && sheet?.k === 'newKeo' && <NewKeoSheet c={c} onClose={close} onCreated={id => { close(); openKeo(id) }} />}
+    {c && sheet?.k === 'newHost' && <NewHostSheet c={c} open={sheet.open} onClose={close} />}
+    {c && sheet?.k === 'poll' && <NewPollSheet c={c} onClose={close} />}
+    {c && sheet?.k === 'pin' && <PinSheet c={c} onClose={close} />}
     {sheet?.k === 'me' && <Sheet label="Tài khoản" onClose={close}>
       <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}><Chibi look={lookOf(me)} /><div><h2>{me.name}</h2><p className="sub small" style={{ margin: 0 }}>{session.user.email}</p>{me.is_admin && <span className="pst">Trưởng xóm</span>}</div></div>
       <button className="btn ghost" onClick={() => setSheet({ k: 'chibi', id: me.id })}>Sửa chibi</button>
