@@ -2,14 +2,16 @@
 // Cần biến môi trường SUPABASE_SERVICE_ROLE_KEY trên Netlify (anh tự dán trong Netlify, không gửi qua chat).
 import webpush from 'web-push'
 import { createClient } from '@supabase/supabase-js'
+import { vapidKeys } from '../lib/vapid'
 import { toLunar } from '../../src/lunar'
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvmhcoctikmnnbcfgtyl.supabase.co'
 
 export default async () => {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY, pub = process.env.VAPID_PUBLIC_KEY, priv = process.env.VAPID_PRIVATE_KEY
-  if (!key || !pub || !priv) { console.log('remind: thiếu khoá, bỏ qua'); return }
-  webpush.setVapidDetails('https://xom-minh.netlify.app', pub, priv)
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!key) { console.log('remind: chưa có SUPABASE_SERVICE_ROLE_KEY, bỏ qua'); return }
+  const vk = await vapidKeys()
+  webpush.setVapidDetails('https://xom-minh.netlify.app', vk.publicKey, vk.privateKey)
   const sb = createClient(SUPABASE_URL, key, { auth: { persistSession: false } })
 
   // "Ngày mai" theo giờ Việt Nam

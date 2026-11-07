@@ -14,12 +14,24 @@ npm run dev
 
 ## Cơ sở dữ liệu
 
-Các file trong `supabase/migrations/` được dán lần lượt vào Supabase → SQL Editor → Run.
+Dán lần lượt vào Supabase → SQL Editor → Run:
+
+1. `supabase/migrations/0001_nen_mong.sql`
+2. `supabase/migrations/0002_link_rieng.sql`
+3. `supabase/chay_mot_lan_gd2_gd3_gd4.sql` (gộp sẵn 0003, 0004, 0005)
+
 Mọi quyền đọc/ghi do RLS quyết định: người ngoài xóm không xem được gì.
 
-## Lộ trình
+## Thông báo đẩy
 
-1. Nền móng: đăng nhập, xóm, gia đình, link mời, hồ sơ, chibi ← đang làm
-2. Điểm danh, kèo, đăng cai, chat
+- `netlify/functions/notify.mts` (`/api/notify`): gửi thông báo cho cả xóm, cần đăng nhập.
+- `netlify/functions/vapid.mts` (`/api/vapid`): khoá công khai; cặp khoá do máy chủ tự tạo và cất trong Netlify Blobs.
+- `netlify/functions/remind.mts`: nhắc 19:00 hằng ngày (mùng 1, rằm, vía Thần Tài, sinh nhật, ngày cưới).
+  Cần biến môi trường `SUPABASE_SERVICE_ROLE_KEY` trên Netlify (dán trong Netlify, không đưa vào code).
+
+## Các phần của app
+
+1. Nền móng: đăng nhập, xóm, gia đình, link mời riêng, hồ sơ, chibi
+2. Điểm danh, kèo, đăng cai, chat, bình chọn, tin ghim
 3. Miếu Thần Tài, xin xăm, thầy bói
-4. Thông báo trên điện thoại
+4. Cài app và thông báo đẩy

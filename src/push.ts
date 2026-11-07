@@ -1,7 +1,7 @@
 import { sb } from './supabase'
 
-// Khoá công khai VAPID (khoá riêng chỉ nằm trên máy chủ Netlify)
-const VAPID_PUBLIC = 'BHOy92nUXBwWvs-AJIZT684XpJCuoA7fiAEDA8adJ6HJgJV4UjdG3PKxGlNdW1eFTrtBu0DEm7OFS8CSLPN6DB4'
+// Khoá công khai lấy từ máy chủ (/api/vapid); khoá riêng chỉ nằm trên máy chủ
+async function vapidPublic(): Promise<string> { const r = await fetch('/api/vapid'); if (!r.ok) throw new Error('Máy chủ thông báo chưa sẵn sàng, thử lại sau nhé.'); return (await r.json()).publicKey }
 
 export const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 export const isStandalone = () => matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true
@@ -32,7 +32,8 @@ export async function enablePush(memberId: string, xomId: string): Promise<strin
   if (perm !== 'granted') return 'Bạn chưa cho phép thông báo. Có thể bật lại trong cài đặt trình duyệt.'
   const reg = await navigator.serviceWorker.register('/sw.js')
   await navigator.serviceWorker.ready
-  const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_PUBLIC) })
+  let sub = await reg.pushManager.getSubscription()
+  if (!sub) { try { sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(await vapidPublic()) }) } catch (e) { return e instanceof Error ? e.message : 'Không bật được thông báo.' } }
   const j = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } }
   const { error } = await sb.from('push_subscriptions').insert({ member_id: memberId, xom_id: xomId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth })
   if (error && !/duplicate|unique/i.test(error.message)) return error.message

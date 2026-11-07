@@ -2,14 +2,13 @@
 // Người gọi phải đăng nhập (gửi kèm access token); chỉ gửi được trong xóm của chính mình.
 import webpush from 'web-push'
 import { createClient } from '@supabase/supabase-js'
+import { vapidKeys } from '../lib/vapid'
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://mvmhcoctikmnnbcfgtyl.supabase.co'
 const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_Cf8wufbB9Psm7KZChj6Xhw_ekYZt2dE'
 
 export default async (req: Request) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
-  const pub = process.env.VAPID_PUBLIC_KEY, priv = process.env.VAPID_PRIVATE_KEY
-  if (!pub || !priv) return Response.json({ sent: 0, reason: 'vapid_missing' })
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '')
   if (!token) return new Response('Unauthorized', { status: 401 })
   let body: { xom_id?: string; title?: string; body?: string; url?: string; tag?: string }
@@ -24,7 +23,8 @@ export default async (req: Request) => {
   if (!me) return new Response('Forbidden', { status: 403 })
 
   const { data: subs } = await sb.from('push_subscriptions').select('endpoint,p256dh,auth,user_id').eq('xom_id', xom).neq('user_id', u.user.id)
-  webpush.setVapidDetails('https://xom-minh.netlify.app', pub, priv)
+  const vk = await vapidKeys()
+  webpush.setVapidDetails('https://xom-minh.netlify.app', vk.publicKey, vk.privateKey)
   const payload = JSON.stringify({
     title: String(body.title || 'Xóm Mình').slice(0, 80),
     body: String(body.body || '').slice(0, 200),
