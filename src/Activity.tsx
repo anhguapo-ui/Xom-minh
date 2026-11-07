@@ -5,6 +5,7 @@ import { STATUS, FREE, TYPES, st, ty } from './consts'
 import { DOW, adultsOf, dayDiff, dm, famShort } from './util'
 import { FamilyHeads, MemberHead, Sheet, useToast } from './ui'
 import { notify } from './push'
+import { EventAlbum } from './Album'
 
 export type Ctx = { d: XomData; live: Live; me: Member; myFam: Family; reload: () => void; tick: number }
 
@@ -140,6 +141,7 @@ export function KeoDetail({ c, id, back }: { c: Ctx; id: string; back: () => voi
           return <span key={a.id} className={'pst ' + L[1]}>{a.name}: {L[0]}</span> })}</div></div></div>)}
         {pending > 0 && <div className="row"><span className="meta">{pending} người chưa trả lời</span></div>}</div>
     </section>
+    <EventAlbum c={c} type="keo" id={k.id} title={k.title} />
     <section className="section"><h2>Bàn kèo</h2><ChannelThread c={c} channel={'keo:' + k.id} placeholder="Đổi giờ, đổi quán, ai đón ai…" /></section>
   </>
 }
@@ -170,6 +172,7 @@ export function NewKeoSheet({ c, onClose, onCreated }: { c: Ctx; onClose: () => 
 /* ---------- Đăng cai ---------- */
 export function Hosts({ c, newHost }: { c: Ctx; newHost: (open: boolean) => void }) {
   const toast = useToast()
+  const [album, setAlbum] = useState<string | null>(null)
   const now = Date.now() - 864e5
   const list = c.live.hosts.filter(h => new Date(h.at).getTime() > now)
   const year = new Date().getFullYear()
@@ -201,6 +204,7 @@ export function Hosts({ c, newHost }: { c: Ctx; newHost: (open: boolean) => void
           <div className="hostline"><FamilyHeads d={c.d} f={f} /><span><b>{famName(c, f)}</b> làm chủ nhà</span></div>
           {h.note && <p className="note">{h.note}</p>}
           <div className="going"><span className="stack">{yes.slice(0, 8).map(r => { const m = memberById(c, r.member_id); return m && <MemberHead key={m.id} m={m} sm /> })}</span></div>
+          <button className="link" style={{ alignSelf: 'flex-start' }} onClick={() => setAlbum(h.id)}>📸 Album buổi này</button>
           {f.id === c.myFam.id ? <button className="btn ghost block" onClick={() => rpc(h.id, false)}>Nhường lại cho nhà khác</button>
             : <RsvpButtons labels={['Đến', 'Để xem', 'Bận']} mine={rs.find(r => r.member_id === c.me.id)?.status} onPick={v => rsvp(h.id, v)} />}
         </article>
@@ -209,6 +213,7 @@ export function Hosts({ c, newHost }: { c: Ctx; newHost: (open: boolean) => void
       <button className="btn ghost block" onClick={() => newHost(false)}>+ Đề xuất buổi mới, nhà mình đăng cai</button>
       {c.me.is_admin && <button className="btn ghost block" onClick={() => newHost(true)}>+ Mở buổi chờ nhà xung phong</button>}
     </section>
+    {album && (() => { const h = c.live.hosts.find(x => x.id === album); return h && <Sheet label="Album" onClose={() => setAlbum(null)}><h2>{h.title}</h2><EventAlbum c={c} type="host" id={h.id} title={h.title} /></Sheet> })()}
     {gold.size > 0 && <section className="section gold"><div className="section-head"><h2>Bảng vàng chủ nhà</h2><span className="sub small">năm {year}</span></div>
       <div className="list">{[...gold.entries()].sort((a, b) => b[1] - a[1]).map(([fid, n], i) => { const f = c.d.families.find(x => x.id === fid); return f &&
         <div className="row" key={fid}><span className="rank">{i + 1}</span><FamilyHeads d={c.d} f={f} /><div className="grow name">{famName(c, f)}</div><span className="pst">{n} lần</span></div> })}</div></section>}

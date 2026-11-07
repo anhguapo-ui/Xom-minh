@@ -8,6 +8,8 @@ import { ChibiEditor } from './ChibiEditor'
 import { useLive } from './live'
 import { toLunar, findLunar, lunarName } from './lunar'
 import { GateCard, Temple } from './Temple'
+import { AlbumTab, OnThisDay } from './Album'
+import { HelpTab } from './Help'
 import { NotifyCard, NotifyToggle } from './Install'
 import { disablePush } from './push'
 import { type Ctx, CheckinCard, FreeList, KeoCard, KeoDetail, NewKeoSheet, Hosts, NewHostSheet, ChatTab, PinSheet, PollCard, NewPollSheet, UpcomingKeos, postWish } from './Activity'
@@ -103,6 +105,7 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
   const close = useCallback(() => setSheet(null), [])
   const [keoId, setKeoId] = useState<string | null>(null)
   const [enterMieu, setEnterMieu] = useState(false)
+  const [xomSub, setXomSub] = useState<'fam' | 'help' | 'album'>('fam')
   const [keoSub, setKeoSub] = useState<'keo' | 'host'>('keo')
   useEffect(() => { sessionStorage.setItem('xm-tab', tab); scrollTo(0, 0) }, [tab, keoId])
   const onErr = useCallback((e: unknown) => toast(errText(e)), [toast])
@@ -151,6 +154,7 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
       <UpcomingKeos c={c} open={openKeo} all={() => { setTab('keo'); setKeoId(null) }} />
     </section>
     {evs[0] && <section className="section"><h2>Đừng quên</h2><div className="list">{evRow(evs[0])}</div></section>}
+    <OnThisDay c={c} />
     {setupLeft && <section className="section card">
       <h2>Việc nên làm</h2>
       <div className="list" style={{ boxShadow: 'none' }}>
@@ -178,8 +182,14 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
   </>
   else if (tab === 'mieu') view = <Temple c={c} enter={enterMieu} back={() => { setEnterMieu(false); setTab('home') }} />
   else if (tab === 'chat') view = <ChatTab c={c} pin={() => setSheet({ k: 'pin' })} />
+  else if (xomSub !== 'fam') view = <>
+    <div><h1>{d.xom.name}</h1></div>
+    <XomSeg sub={xomSub} set={setXomSub} />
+    {xomSub === 'help' ? <HelpTab c={c} /> : <AlbumTab c={c} />}
+  </>
   else view = <>
     <div><h1>{d.xom.name}</h1><p className="sub">{d.families.length} gia đình · {joined} người lớn đã vào · {d.members.filter(m => m.role === 'kid').length} bạn nhỏ</p></div>
+    <XomSeg sub={xomSub} set={setXomSub} />
     <section className="section"><div className="section-head"><h2>Sắp tới</h2><span className="sub small">45 ngày tới</span></div>
       <div className="list">{evs.length ? evs.map(evRow) : <div className="row"><span className="sub">Chưa có ngày đặc biệt nào. Điền ngày sinh trong hồ sơ để cả xóm nhớ chúc nhé.</span></div>}</div>
     </section>
@@ -236,6 +246,11 @@ function XomApp({ session, d, reload }: { session: Session; d: XomData; reload: 
     {sheet?.k === 'invite' && <Sheet label="Mời gia đình mới" onClose={close}><InviteForm xomId={d.xom.id} onDone={(items, fam) => { reload(); setSheet({ k: 'link', items, fam }) }} /></Sheet>}
     {sheet?.k === 'link' && <Sheet label="Link mời" onClose={close}><LinkBox items={sheet.items} fam={sheet.fam} xom={d.xom.name} /></Sheet>}
   </div>
+}
+
+function XomSeg({ sub, set }: { sub: 'fam' | 'help' | 'album'; set: (s: 'fam' | 'help' | 'album') => void }) {
+  return <div className="seg seg3" style={{ marginTop: 14 }} role="group" aria-label="Chọn mục">
+    {([['fam', 'Gia đình'], ['help', 'Tương trợ'], ['album', 'Album']] as const).map(([k, t]) => <button key={k} aria-pressed={sub === k} onClick={() => set(k)}>{t}</button>)}</div>
 }
 
 function InviteForm({ xomId, onDone }: { xomId: string; onDone: (items: LinkItem[], fam: string) => void }) {
