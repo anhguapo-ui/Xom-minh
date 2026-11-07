@@ -6,11 +6,12 @@ import { toLunar, findLunar, lunarName } from './lunar'
 import { MemberHead, Sheet, useToast } from './ui'
 import { ty } from './consts'
 import type { Ctx } from './Activity'
+import { TempleScene, type CastMember } from './temple3d'
 import {
-  gateSVG, altarGroup, sceneHTML, sceneCast, gx, showSay, startChatter, npcSVG, isLe, LV, XAM, TOPICS, TPOOL, tubeSVG,
-  CHI, MAU, HUONG, tuoi, VAN, NEN, TRANH, THANG, dayInfo, hourChi, relate, PRAYER, setTempleData, type Off,
+  gateSVG, npcSVG, isLe, LV, XAM, TOPICS, TPOOL, tubeSVG,
+  CHI, MAU, HUONG, tuoi, VAN, NEN, TRANH, THANG, dayInfo, hourChi, relate, PRAYER,
 } from './temple'
-import { hash, chibiSVG } from './chibi'
+import { hash } from './chibi'
 
 const OFFER = [{ k: 'hoa', t: 'Hoa tươi' }, { k: 'qua', t: 'Mâm ngũ quả' }, { k: 'nuoc', t: 'Chén trà' }, { k: 'vang', t: 'Thỏi vàng' }]
 const hm = (t: Date) => t.getHours() + ':' + String(t.getMinutes()).padStart(2, '0')
@@ -37,57 +38,53 @@ export function GateCard({ c, enter }: { c: Ctx; enter: () => void }) {
 export function Temple({ c, enter, back }: { c: Ctx; enter: boolean; back: () => void }) {
   const toast = useToast()
   const host = useRef<HTMLDivElement>(null)
+  const scene = useRef<TempleScene | null>(null)
   const anim = useRef<string[] | null>(null)
   const [doors, setDoors] = useState(enter)
   const [sheet, setSheet] = useState<null | 'light' | 'xam' | 'thay'>(null)
   const famOf = useMemo(() => new Map(c.d.members.map(m => [m.id, m.family_id])), [c.d.members])
+  const cRef = useRef(c); cRef.current = c
 
-  // Dữ liệu cho phần vẽ sân miếu
-  const offs: Off[] = c.live.altar.filter(a => famOf.has(a.member_id)).map(a => ({ member_id: a.member_id, family_id: famOf.get(a.member_id)!, offerings: a.offerings }))
-  setTempleData(offs, new Map(c.d.families.map(f => [f.id, kidsOf(c.d, f).map(k => k.id)])), new Map(c.d.members.map(m => [m.id, { name: m.name, look: lookOf(m) }])))
-
-  const paint = () => {
-    const el = host.current; if (!el) return
-    const prev = el.querySelector<HTMLElement>('#scene-scroll')?.scrollLeft
-    el.innerHTML = sceneHTML(anim.current || [], doors)
-    const scr = el.querySelector<HTMLElement>('#scene-scroll')!
-    scr.scrollLeft = prev ?? (scr.scrollWidth - scr.clientWidth) / 2
-    startChatter()
+  // Ai đã thắp hương hôm nay (kèm các bé nhà đó) đứng trong sân
+  const castOf = (cc: Ctx): CastMember[] => {
+    const out: CastMember[] = [], seen = new Set<string>()
+    for (const a of cc.live.altar) {
+      const m = cc.d.members.find(x => x.id === a.member_id); if (!m) continue
+      if (!seen.has(m.id)) { seen.add(m.id); out.push({ id: m.id, look: lookOf(m), kid: false, name: m.name }) }
+      for (const k of cc.d.members.filter(x => x.family_id === m.family_id && x.role === 'kid')) if (!seen.has(k.id)) { seen.add(k.id); out.push({ id: k.id, look: lookOf(k), kid: true, name: k.name }) }
+    }
+    return out
   }
-  // Vẽ lại sân khi có người thắp hương (trừ lúc đang diễn hoạt cảnh của mình)
-  useEffect(() => { if (!anim.current) paint() }, [c.live.altar, c.d.members]) // eslint-disable-line react-hooks/exhaustive-deps
+  const offerSet = (cc: Ctx) => new Set(cc.live.altar.flatMap(a => a.offerings || []))
+
+  useEffect(() => {
+    const s = new TempleScene(host.current!, {
+      onNpc: k => setSheet(k === 'tu' ? 'xam' : 'thay'),
+      onChar: id => {
+        const cc = cRef.current, m = cc.d.members.find(x => x.id === id); if (!m) return
+        const off = cc.live.altar.find(a => a.member_id === m.id), w = off && cc.live.wishes.find(x => x.offering_id === off.id)
+        s.say('char', id, m.role === 'kid' ? 'Bé ' + m.name + ' đi lễ cùng bố mẹ' : w ? m.name + ': "' + w.wish + '"' : m.name + (off ? ' đã thắp hương lúc ' + hm(new Date(off.created_at)) : ''))
+      },
+    })
+    scene.current = s
+    s.setNpcs()
+    s.chatter({ tu: isLe() ? ['Hôm nay ngày đẹp, xin một quẻ đi con!', 'Thành tâm khấn rồi hẵng lắc nhé.'] : ['Mùng 1, rằm mới xin xăm cho linh nhé!', 'Thắp hương xong ghé ông chơi.'],
+      thay: ['Lại đây thầy xem cho!', 'Xem tuổi vợ chồng không? Thầy xem miễn phí!', 'Hẹn kèo ngày nào, thầy chọn giờ cho.', 'Hỏi thầy gì cũng được, thầy trả lời liền!'] })
+    return () => { s.dispose(); scene.current = null }
+  }, [])
+  useEffect(() => { scene.current?.setCast(castOf(c), litFamilies(c).length, offerSet(c), anim.current || []) }, [c.live.altar, c.d.members]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (doors) { const t = setTimeout(() => setDoors(false), 1600); return () => clearTimeout(t) } }, [doors])
 
-  function onSceneClick(e: React.MouseEvent) {
-    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-act]'); if (!b) return
-    const act = b.dataset.act
-    if (act === 'pan') { const scr = host.current!.querySelector<HTMLElement>('#scene-scroll')!; scr.scrollTo({ left: b.dataset.x === '0' ? 0 : scr.scrollWidth, behavior: 'smooth' }) }
-    else if (act === 'npc') setSheet(b.dataset.k === 'tu' ? 'xam' : 'thay')
-    else if (act === 'char') {
-      const m = c.d.members.find(x => x.id === b.dataset.p); if (!m) return
-      const off = c.live.altar.find(a => a.member_id === m.id), w = off && c.live.wishes.find(x => x.offering_id === off.id)
-      showSay(b, m.role === 'kid' ? 'Bé ' + m.name + ' đi lễ cùng bố mẹ' : w ? m.name + ': "' + w.wish + '"' : m.name + (off ? ' đã thắp hương lúc ' + hm(new Date(off.created_at)) : ''))
-    }
-  }
-
-  // Hoạt cảnh: mình (và các bé) đi vào, vái 3 vái, cắm hương, lùi về sân
-  function playLight(ids: string[]) {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { anim.current = null; paint(); return }
-    anim.current = ids; paint(); scrollTo(0, 0)
-    const scr = host.current!.querySelector<HTMLElement>('#scene-scroll')!
-    scr.scrollLeft = (scr.scrollWidth - scr.clientWidth) / 2
-    const sc = host.current!.querySelector<HTMLElement>('#scene')!
-    const els = ids.map((id, i) => {
-      const m = c.d.members.find(x => x.id === id)!, d = document.createElement('div')
-      d.className = 'ch walking moving' + (i > 0 ? ' kid' : ''); d.style.left = gx(-8 - i * 7) + '%'; d.style.bottom = (i ? 5 : 8) + '%'; d.style.zIndex = String(150 - i)
-      d.innerHTML = chibiSVG(lookOf(m)); sc.appendChild(d); return d
+  // Hoạt cảnh: mình (và các bé) đi vào, quay mặt vào ban thờ, vái 3 vái, cắm hương
+  function playLight(ids: string[], offs: string[]) {
+    const s = scene.current; if (!s) return
+    anim.current = ids; scrollTo(0, 0)
+    const people = ids.map(id => { const m = c.d.members.find(x => x.id === id)!; return { id, look: lookOf(m), kid: m.role === 'kid', name: m.name } })
+    const lit = new Set(litFamilies(c)); lit.add(c.myFam.id)
+    const offers = offerSet(c); offs.forEach(o => offers.add(o))
+    s.playLight(people, lit.size, offers, () => toast('🙏 Nén hương đã thắp. Cầu cho nhà mình bình an, may mắn!')).then(() => {
+      anim.current = null; const cc = cRef.current; s.setCast(castOf(cc), litFamilies(cc).length, offerSet(cc))
     })
-    const alive = () => host.current?.querySelector('#scene') === sc
-    requestAnimationFrame(() => requestAnimationFrame(() => els.forEach((d, i) => { d.style.setProperty('--t', '2.4s'); d.style.left = gx(i === 0 ? 50 : i % 2 ? 41 - i : 59 + i) + '%'; d.style.bottom = (i === 0 ? 27 : 24) + '%' })))
-    setTimeout(() => { if (!alive()) return; els.forEach((d, i) => { d.classList.remove('walking'); d.classList.add('bowing'); if (i === 0) d.classList.add('praying') }) }, 2500)
-    setTimeout(() => { if (!alive()) return; els.forEach(d => d.classList.remove('bowing', 'praying')); const g = sc.querySelector('#altar-g'); if (g) g.innerHTML = altarGroup([]); toast('🙏 Nén hương đã thắp. Cầu cho nhà mình bình an, may mắn!') }, 5000)
-    setTimeout(() => { if (!alive()) return; const cast = sceneCast([]); els.forEach((d, i) => { const ct = cast.find((x: { pid: string }) => x.pid === ids[i]); if (!ct) return; d.style.setProperty('--t', '1.4s'); d.classList.add('walking'); d.style.left = ct.x + '%'; d.style.bottom = ct.b + '%' }) }, 5400)
-    setTimeout(() => { anim.current = null; if (alive()) paint() }, 6900)
   }
 
   const now = new Date(), L = toLunar(now)
@@ -100,10 +97,11 @@ export function Temple({ c, enter, back }: { c: Ctx; enter: boolean; back: () =>
 
   return <>
     <button className="back" onClick={back}>‹ Ra khỏi miếu</button>
-    <div><h1>Miếu Thần Tài</h1><p className="sub">Miếu chung của cả xóm. Ai thắp hương hôm nay sẽ đứng trong sân, bấm vào từng người để xem lời nguyện. Vuốt ngang để gặp Ông Từ và Thầy Lộc.</p></div>
-    <div style={{ position: 'relative' }}>
-      <div ref={host} onClick={onSceneClick} />
-      {doors && <div className="doors" aria-hidden="true" style={{ borderRadius: 20, top: 14 }}><i /><i /></div>}
+    <div><h1>Miếu Thần Tài</h1><p className="sub">Miếu chung của cả xóm. Ai thắp hương hôm nay sẽ đứng trong sân, bấm vào từng người để xem lời nguyện. Vuốt để xoay quanh sân, bấm Ông Từ hoặc Thầy Lộc để xin xăm, xem bói.</p></div>
+    <div className="scene3d">
+      <div ref={host} className="scene3d-host" />
+      <button className="pan l" onClick={() => scene.current?.panTo(-1)}>‹ Xin xăm</button><button className="pan r" onClick={() => scene.current?.panTo(1)}>Thầy bói ›</button>
+      {doors && <div className="doors" aria-hidden="true"><i /><i /></div>}
     </div>
     <div className="lunar"><div className="moon">{L.d}</div><div><b>{lunarName(L)} âm lịch</b>
       {fests[0] && <div className="meta">{fests[0][1]!.days === 0 ? 'Hôm nay là ' + fests[0][0].toLowerCase() : 'Còn ' + fests[0][1]!.days + ' ngày đến ' + fests[0][0].toLowerCase()}</div>}</div></div>
@@ -127,17 +125,17 @@ export function Temple({ c, enter, back }: { c: Ctx; enter: boolean; back: () =>
     <section className="section"><details className="prayer"><summary>Văn khấn Thần Tài – Thổ Địa (tham khảo)</summary><p>{PRAYER}</p></details>
       <p className="sub small">Xóm Mình chỉ là nơi kết nối tinh thần, không nhận bất kỳ khoản công đức hay tiền lễ nào.</p></section>
 
-    {sheet === 'light' && <LightSheet c={c} onClose={() => setSheet(null)} onLit={() => {
+    {sheet === 'light' && <LightSheet c={c} onClose={() => setSheet(null)} onLit={offs => {
       setSheet(null)
       const already = c.live.altar.some(a => a.member_id !== c.me.id && famOf.get(a.member_id) === c.myFam.id)
-      playLight([c.me.id, ...(already ? [] : kidsOf(c.d, c.myFam).map(k => k.id))]); c.reload()
+      playLight([c.me.id, ...(already ? [] : kidsOf(c.d, c.myFam).map(k => k.id))], offs); c.reload()
     }} />}
     {sheet === 'xam' && <XamSheet c={c} onClose={() => setSheet(null)} />}
     {sheet === 'thay' && <ThaySheet c={c} onClose={() => setSheet(null)} />}
   </>
 }
 
-function LightSheet({ c, onClose, onLit }: { c: Ctx; onClose: () => void; onLit: () => void }) {
+function LightSheet({ c, onClose, onLit }: { c: Ctx; onClose: () => void; onLit: (offerings: string[]) => void }) {
   const toast = useToast()
   const [off, setOff] = useState(['hoa', 'qua']), [wish, setWish] = useState(''), [priv, setPriv] = useState(false), [busy, setBusy] = useState(false)
   async function submit(e: React.FormEvent) {
@@ -145,7 +143,7 @@ function LightSheet({ c, onClose, onLit }: { c: Ctx; onClose: () => void; onLit:
     const { data, error } = await sb.from('altar_offerings').insert({ xom_id: c.d.xom.id, member_id: c.me.id, day: dayKey(), offerings: off }).select('id').single()
     if (!error && wish.trim()) await sb.from('altar_wishes').insert({ offering_id: data.id, xom_id: c.d.xom.id, member_id: c.me.id, wish: wish.trim(), private: priv })
     setBusy(false)
-    if (error) toast(/duplicate|unique/i.test(error.message) ? 'Hôm nay bạn đã thắp hương rồi' : errText(error)); else onLit()
+    if (error) toast(/duplicate|unique/i.test(error.message) ? 'Hôm nay bạn đã thắp hương rồi' : errText(error)); else onLit(off)
   }
   return <Sheet label="Thắp hương" onClose={onClose}><h2>Thắp hương</h2><p className="sub small" style={{ margin: 0 }}>Nén hương của {c.me.name} sẽ cắm lên ban thờ chung của xóm.</p>
     <form className="stackf" onSubmit={submit}>
