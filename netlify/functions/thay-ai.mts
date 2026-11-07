@@ -23,11 +23,13 @@ export default async (req: Request) => {
   if (!msgs.length || msgs[msgs.length - 1].role !== 'user') return new Response('Bad request', { status: 400 })
   const left = await takeQuota(c, String(b.xom_id), 'thay'); if (left instanceof Response) return left
   const r = await openaiJSON('chat/completions', {
-    model: chatModel(await listModels()), temperature: 0.9, max_tokens: 350,
+    model: chatModel(await listModels()), temperature: 0.9, max_completion_tokens: 1500, reasoning_effort: 'low',
     messages: [{ role: 'system', content: SYSTEM }, { role: 'system', content: 'Thông tin người hỏi: ' + String(b.ctx || '').slice(0, 400) }, ...msgs],
   })
   if (!r.ok) return Response.json({ error: r.code }, { status: 502 })
-  return Response.json({ reply: String(r.j.choices?.[0]?.message?.content || 'Thầy đang bận pha trà, con hỏi lại sau nhé!'), left })
+  const reply = String(r.j.choices?.[0]?.message?.content || '').trim()
+  if (!reply) console.log('trả lời rỗng', JSON.stringify(r.j.usage || {}))
+  return Response.json({ reply: reply || 'Thầy vừa bấm quẻ nhưng mây che mất rồi, con hỏi lại câu khác thầy xem nhé!', left })
 }
 
 export const config = { path: '/api/thay-ai' }

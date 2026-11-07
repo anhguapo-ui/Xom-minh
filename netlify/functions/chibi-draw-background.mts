@@ -29,7 +29,7 @@ async function run(dataUrl: string): Promise<{ image?: string; error?: string }>
   const gen = hasDalle3(ids) ? 'dall-e-3' : imageEditModels(ids)[0]
   if (!gen) return { error: lastErr }
   const d = await openaiJSON('chat/completions', {
-    model: chatModel(ids), max_tokens: 120,
+    model: chatModel(ids), max_completion_tokens: 800, reasoning_effort: 'low',
     messages: [{ role: 'user', content: [
       { type: 'text', text: 'Describe only the visible appearance of the main person for an illustrator, in one short English sentence: approximate age group, gender presentation, hairstyle and hair color, skin tone, glasses, facial hair, clothing color. No names, no guesses about identity.' },
       { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } }] }],

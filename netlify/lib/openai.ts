@@ -45,11 +45,23 @@ export function errCode(status: number, body: string): string {
   return 'ai_loi'
 }
 
-export async function openaiJSON(path: string, body: unknown): Promise<{ ok: true; j: any } | { ok: false; code: string }> { // eslint-disable-line @typescript-eslint/no-explicit-any
-  const r = await fetch('https://api.openai.com/v1/' + path, { method: 'POST', headers: { ...H(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-  if (r.ok) return { ok: true, j: await r.json() }
-  const t = await r.text(); console.log('openai', path, r.status, t.slice(0, 400))
-  return { ok: false, code: errCode(r.status, t) }
+// Gửi yêu cầu JSON; nếu OpenAI chê thông số nào (đổi tên, model không hỗ trợ) thì tự sửa và gửi lại
+export async function openaiJSON(path: string, body: Record<string, unknown>): Promise<{ ok: true; j: any } | { ok: false; code: string }> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const b: Record<string, unknown> = { ...body }
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const r = await fetch('https://api.openai.com/v1/' + path, { method: 'POST', headers: { ...H(), 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
+    if (r.ok) return { ok: true, j: await r.json() }
+    const t = await r.text(); console.log('openai', path, r.status, t.slice(0, 400))
+    let param = ''
+    try { const e = JSON.parse(t).error || {}; if (/unsupported|invalid/i.test(String(e.code || e.type || '')) && e.param) param = String(e.param) } catch { /* không phải JSON */ }
+    if (r.status !== 400 || !param || !(param in b || param === 'max_tokens' || param === 'max_completion_tokens')) return { ok: false, code: errCode(r.status, t) }
+    // Tự thích nghi
+    if (param === 'max_tokens' && 'max_tokens' in b) { b.max_completion_tokens = Math.max(Number(b.max_tokens) * 4, 1200); delete b.max_tokens }
+    else if (param === 'max_completion_tokens' && 'max_completion_tokens' in b) { b.max_tokens = Math.min(Number(b.max_completion_tokens), 800); delete b.max_completion_tokens }
+    else delete b[param]
+    console.log('thử lại, bỏ/đổi thông số', param)
+  }
+  return { ok: false, code: 'ai_loi' }
 }
 export async function openaiForm(path: string, form: FormData): Promise<{ ok: true; j: any } | { ok: false; code: string }> { // eslint-disable-line @typescript-eslint/no-explicit-any
   const r = await fetch('https://api.openai.com/v1/' + path, { method: 'POST', headers: H(), body: form })
