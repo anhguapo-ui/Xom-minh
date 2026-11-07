@@ -12,6 +12,7 @@ import {
   CHI, MAU, HUONG, tuoi, VAN, NEN, TRANH, THANG, dayInfo, hourChi, relate, PRAYER,
 } from './temple'
 import { hash } from './chibi'
+import { callAI } from './ai'
 
 const OFFER = [{ k: 'hoa', t: 'Hoa tươi' }, { k: 'qua', t: 'Mâm ngũ quả' }, { k: 'nuoc', t: 'Chén trà' }, { k: 'vang', t: 'Thỏi vàng' }]
 const hm = (t: Date) => t.getHours() + ':' + String(t.getMinutes()).padStart(2, '0')
@@ -212,13 +213,14 @@ function XamSheet({ c, onClose }: { c: Ctx; onClose: () => void }) {
 function ThaySheet({ c, onClose }: { c: Ctx; onClose: () => void }) {
   const toast = useToast()
   const spouse = adultsOf(c.d, c.myFam).find(m => m.id !== c.me.id)
-  const [tab, setTab] = useState<'van' | 'tuoi' | 'ngay'>('van')
+  const [tab, setTab] = useState<'van' | 'tuoi' | 'ngay' | 'hoi'>('van')
   const [a, setA] = useState(c.me.id), [b, setB] = useState(spouse?.id || ''), [shown, setShown] = useState(false)
   const [keoId, setKeoId] = useState<string | null>(null), [date, setDate] = useState(dayKey())
-  const tabs = <div className="seg seg3" role="group" aria-label="Chọn việc nhờ thầy">{([['van', 'Vận hôm nay'], ['tuoi', 'Xem tuổi'], ['ngay', 'Xem ngày']] as const).map(([k, t]) =>
+  const tabs = <div className="seg seg4" role="group" aria-label="Chọn việc nhờ thầy">{([['hoi', 'Hỏi thầy'], ['van', 'Vận'], ['tuoi', 'Tuổi'], ['ngay', 'Ngày']] as const).map(([k, t]) =>
     <button key={k} aria-pressed={tab === k} onClick={() => { setTab(k); setShown(false) }}>{t}</button>)}</div>
   let body
-  if (tab === 'van') {
+  if (tab === 'hoi') body = <><NpcHead k="thay" name="Thầy Lộc" line="Con muốn hỏi chuyện gì? Công việc, gia đạo, chọn quà, đặt tên con… cứ hỏi, thầy phán cho vui!" />{tabs}<AskThay c={c} /></>
+  else if (tab === 'van') {
     const t = tuoi(c.me.dob)
     if (!t) body = <><NpcHead k="thay" name="Thầy Lộc" line={`${c.me.name} chưa khai ngày sinh, thầy chưa xem được. Điền vào hồ sơ nhà mình nhé.`} />{tabs}</>
     else { const hs = hash(c.me.id + dayKey()), star = [2, 3, 3, 4, 4, 4, 5, 5][hs % 8]
@@ -257,4 +259,34 @@ function ThaySheet({ c, onClose }: { c: Ctx; onClose: () => void }) {
         <p className="lx-note">Tính theo lịch âm và cách xem ngày truyền thống, tham khảo cho vui.</p></div></>
   }
   return <Sheet label="Thầy Lộc" onClose={onClose}><div className="npc-sheet">{body}</div></Sheet>
+}
+
+type Chat = { role: 'user' | 'assistant'; content: string }
+function AskThay({ c }: { c: Ctx }) {
+  const key = 'xm-thay-' + c.me.id
+  const [msgs, setMsgs] = useState<Chat[]>(() => { try { return JSON.parse(sessionStorage.getItem(key) || '[]') } catch { return [] } })
+  const [v, setV] = useState(''), [busy, setBusy] = useState(false), [left, setLeft] = useState<number | null>(null), [err, setErr] = useState('')
+  const end = useRef<HTMLDivElement>(null)
+  useEffect(() => { try { sessionStorage.setItem(key, JSON.stringify(msgs.slice(-20))) } catch { /* bỏ qua */ } end.current?.scrollIntoView({ block: 'nearest' }) }, [msgs, key])
+  const t = tuoi(c.me.dob), L = toLunar(new Date())
+  const ctx = `Tên: ${c.me.name}. ${t ? `Tuổi ${t.can} ${t.chi} (con ${t.con.toLowerCase()}), mệnh ${t.menh}.` : 'Chưa rõ ngày sinh.'} Hôm nay ${lunarName(L)} âm lịch, ${DOW[new Date().getDay()]} ${dm(new Date())}.`
+  async function send(e: React.FormEvent) {
+    e.preventDefault(); const q = v.trim(); if (!q || busy) return
+    const next = [...msgs, { role: 'user' as const, content: q }]; setMsgs(next); setV(''); setBusy(true); setErr('')
+    try { const r = await callAI<{ reply: string; left: number }>('/api/thay-ai', { xom_id: c.d.xom.id, messages: next.slice(-10), ctx }); setMsgs([...next, { role: 'assistant', content: r.reply }]); setLeft(r.left) }
+    catch (x) { setErr((x as Error).message); setMsgs(msgs) ; setV(q) }
+    setBusy(false)
+  }
+  return <>
+    <div className="thread">{msgs.map((m, i) => <div key={i} className={'msg' + (m.role === 'user' ? ' me' : '')}>
+      {m.role === 'assistant' && <div className="npc-face mini" dangerouslySetInnerHTML={{ __html: npcSVG('thay') }} />}
+      <div className="bubble">{m.role === 'assistant' && <span className="by">Thầy Lộc</span>}{m.content}</div></div>)}
+      {busy && <div className="msg"><div className="npc-face mini" dangerouslySetInnerHTML={{ __html: npcSVG('thay') }} /><div className="bubble">Để thầy bấm đốt ngón tay…</div></div>}
+      <div ref={end} /></div>
+    {err && <div className="note">{err}</div>}
+    <form className="composer" style={{ position: 'static' }} onSubmit={send}>
+      <input aria-label="Câu hỏi cho thầy" maxLength={300} value={v} onChange={e => setV(e.target.value)} placeholder="VD: Tháng này con có nên đổi việc?" />
+      <button type="submit" disabled={busy}>Hỏi</button></form>
+    <p className="lx-note" style={{ margin: 0 }}>Thầy Lộc là AI, phán cho vui thôi nhé.{left != null ? ` Hôm nay còn ${left} câu hỏi.` : ''}</p>
+  </>
 }

@@ -3,6 +3,8 @@ import { ALL_HAIR, HAIRC, HAIR_NAMES, SHIRT, SKIN, headSVG, photoToDataUrl, type
 import { sb, errText, type Member } from './supabase'
 import { lookOf } from './util'
 import { Chibi, useToast } from './ui'
+import { callAI, pollJob, toJpeg, fileToDataUrl } from './ai'
+import type { Hair } from './chibi'
 
 // Sửa chibi cho từng người trong nhà. Tự lưu khi đổi người hoặc bấm Xong.
 export function ChibiEditor({ members, startId, onSaved, onClose }:
@@ -22,10 +24,37 @@ export function ChibiEditor({ members, startId, onSaved, onClose }:
     if (error) { toast(errText(error)); return false }
     dirty.current = false; onSaved(); return true
   }
+  const src = useRef<string>('') // ảnh gốc thu nhỏ 768px, chỉ dùng để gửi AI
+  const [consent, setConsent] = useState(false)
+  const [ai, setAi] = useState<null | { kind: 'pick' | 'draw'; sec: number }>(null)
+  const [drawn, setDrawn] = useState<string | null>(null)
   async function pickPhoto(file?: File) {
     if (!file) return
-    try { set({ mode: 'photo', photo: await photoToDataUrl(file), zoom: 1.25, ox: 0, oy: 0 }) }
+    try { set({ mode: 'photo', photo: await photoToDataUrl(file), zoom: 1.25, ox: 0, oy: 0 }); src.current = await toJpeg(await fileToDataUrl(file), 768) }
     catch { toast('Không đọc được ảnh này, thử ảnh khác nhé') }
+  }
+  const kid = m.role === 'kid'
+  async function aiPick() {
+    const img = src.current || look.photo; if (!img) { toast('Chọn ảnh trước nhé'); return }
+    setAi({ kind: 'pick', sec: 0 })
+    try {
+      const r = await callAI<{ pick: { hair?: string; hairC?: number; skin?: number; glasses?: boolean; acc?: string; shirt?: number } }>('/api/chibi-ai', { xom_id: m.xom_id, mode: 'pick', image: img, kid, consent })
+      const p = r.pick
+      set({ mode: 'build', hair: (ALL_HAIR.includes(p.hair as Hair) ? p.hair : look.hair) as Hair, hairC: HAIRC[p.hairC ?? -1] || look.hairC, skin: SKIN[p.skin ?? -1] || look.skin,
+        glasses: !!p.glasses, acc: (['none', 'bow', 'cap'].includes(p.acc || '') ? p.acc : 'none') as Look['acc'], shirt: SHIRT[p.shirt ?? -1] || look.shirt })
+      toast('AI đã chọn chibi giống ảnh, bấm Lưu nếu ưng nhé')
+    } catch (e) { toast((e as Error).message) }
+    setAi(null)
+  }
+  async function aiDraw() {
+    const img = src.current || look.photo; if (!img) { toast('Chọn ảnh trước nhé'); return }
+    setAi({ kind: 'draw', sec: 0 }); setDrawn(null)
+    try {
+      const { job } = await callAI<{ job: string }>('/api/chibi-ai', { xom_id: m.xom_id, mode: 'draw', image: img, kid, consent })
+      const out = await pollJob(job, s => setAi({ kind: 'draw', sec: s }))
+      setDrawn(await toJpeg(out, 240, .82))
+    } catch (e) { toast((e as Error).message) }
+    setAi(null)
   }
 
   const sw = (k: 'hairC' | 'skin' | 'shirt', arr: string[]) => <div className="opts">{arr.map(c =>
@@ -54,6 +83,20 @@ export function ChibiEditor({ members, startId, onSaved, onClose }:
         </div>
         <button type="button" className="link" style={{ alignSelf: 'flex-start' }} onClick={() => set({ mode: 'build', photo: '' })}>Bỏ ảnh, quay lại tự tạo</button>
       </>}
+      {look.photo && <div className="ai-box">
+        <div className="group-title">✨ Nhờ AI</div>
+        {kid && <label className="check"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} /> Tôi là bố/mẹ của bé và đồng ý gửi ảnh cho AI xử lý</label>}
+        <div className="two">
+          <button type="button" className="btn ghost" disabled={!!ai || (kid && !consent)} onClick={aiPick}>{ai?.kind === 'pick' ? 'Đang xem ảnh…' : 'AI chọn chibi giống ảnh'}</button>
+          <button type="button" className="btn sun" disabled={!!ai || (kid && !consent)} onClick={aiDraw}>{ai?.kind === 'draw' ? `Đang vẽ… ${ai.sec}s` : '🎨 AI vẽ chân dung'}</button>
+        </div>
+        {ai?.kind === 'draw' && <p className="sub small" style={{ margin: 0 }}>AI thường vẽ mất 20–60 giây, cứ để màn hình này mở nhé.</p>}
+        {drawn && <div className="ai-drawn"><img src={drawn} alt="Chân dung chibi do AI vẽ" />
+          <div className="stackf" style={{ gap: 8 }}><b>Chân dung AI vẽ</b>
+            <button type="button" className="btn" onClick={() => { set({ mode: 'photo', photo: drawn, zoom: 1.05, ox: 0, oy: 0 }); setDrawn(null); toast('Đã dùng chân dung AI, bấm Lưu nhé') }}>Dùng chân dung này</button>
+            <button type="button" className="link" onClick={() => setDrawn(null)}>Bỏ</button></div></div>}
+        <p className="sub small" style={{ margin: 0 }}>Ảnh chỉ gửi cho AI để xử lý, không lưu lại ở dịch vụ AI. Mỗi tháng mỗi người vẽ được 20 lần.</p>
+      </div>}
       <p className="sub small" style={{ margin: 0 }}>Mẹo: ảnh chụp thẳng mặt, đủ sáng sẽ đẹp nhất. Ảnh được thu nhỏ và chỉ người trong xóm nhìn thấy.</p>
     </> : <>
       <div className="group-title">Kiểu tóc</div>

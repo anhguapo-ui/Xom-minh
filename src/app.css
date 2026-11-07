@@ -27,3 +27,9 @@ nav.tabs .in{grid-template-columns:repeat(4,1fr)}
 .scene3d .say{position:absolute;transform:translate(-50%,-100%);z-index:5}
 .scene3d .pan{z-index:6}
 .scene3d .doors{z-index:7}
+.seg4{grid-template-columns:repeat(4,1fr);margin-top:0}
+.seg4 button{font-size:14px;padding:0 2px}
+.npc-face.mini{width:34px;height:40px;padding:2px 3px 0;border-radius:10px;flex:none}
+.ai-box{display:flex;flex-direction:column;gap:10px;background:var(--sun-soft);border-radius:16px;padding:12px}
+.ai-drawn{display:flex;gap:12px;align-items:center}
+.ai-drawn img{width:110px;height:110px;border-radius:50%;object-fit:cover;border:3px solid var(--surface)}
