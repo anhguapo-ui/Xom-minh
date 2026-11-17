@@ -49,6 +49,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("headingUp", true)
         set(v) = sp.edit().putBoolean("headingUp", v).apply()
 
+    /** Khoá Gemini do người dùng tự dán vào; chỉ lưu trên máy này. */
+    var geminiKey: String
+        get() = sp.getString("geminiKey", "") ?: ""
+        set(v) = sp.edit().putString("geminiKey", v.trim()).apply()
+
     var askedLocation: Boolean
         get() = sp.getBoolean("askedLocation", false)
         set(v) = sp.edit().putBoolean("askedLocation", v).apply()

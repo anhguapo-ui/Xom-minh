@@ -12,6 +12,7 @@ Mỗi lần đẩy code vào thư mục `launcher/`, GitHub Actions tự build v
 ## Cách dùng
 - **Bản đồ**: kéo để xem chỗ khác, nút +/− để phóng, chạm để mở Google Maps. Dòng chuyến đi (phút · km) chỉ tính khi CarDash đang hiện; nhấn giữ để đặt lại.
 - **YouTube**: nút đỏ cạnh ô tìm kiếm đổi khung bản đồ thành YouTube; nút X ở dải bên trái để về bản đồ (video vẫn chạy tiếp), rời launcher thì video tạm dừng.
+- **Trợ lý giọng nói**: nút micro ở góc trên phải bản đồ (hoặc nút giọng nói trên vô lăng nếu máy cho chọn CarDash). Nói tiếng Việt để chỉ đường, mở app, tìm video YouTube, điều khiển nhạc, hỏi đáp. Cần dán khoá Gemini trong Cài đặt; chưa có khoá thì chỉ hiểu vài lệnh đơn giản. Nhấn giữ nút micro để gõ chữ thay cho nói.
 - **Nút lưới ở đầu dock**: chuyển giữa trang tổng quan và lưới ứng dụng; nhấn giữ để mở Cài đặt.
 - **Nhấn giữ một app trong lưới**: ghim vào dock, ẩn, xem thông tin, gỡ cài đặt.
 - **Ô có dấu +**: chạm để chọn app; nhấn giữ ô đã có app để đổi hoặc bỏ.

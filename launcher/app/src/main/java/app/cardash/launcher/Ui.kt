@@ -194,6 +194,13 @@ class Glyph(private val kind: Int, color: Int = Ui.TEXT) : Drawable() {
                 canvas.drawLine(s * .58f, s * .26f, s * .36f, s * .5f, stroke)
                 canvas.drawLine(s * .36f, s * .5f, s * .58f, s * .74f, stroke)
             }
+            MIC -> {
+                canvas.drawRoundRect(RectF(s * .4f, s * .16f, s * .6f, s * .56f), s * .1f, s * .1f, fill)
+                stroke.strokeWidth = s * .07f
+                canvas.drawArc(RectF(s * .28f, s * .26f, s * .72f, s * .68f), 20f, 140f, false, stroke)
+                canvas.drawLine(s * .5f, s * .68f, s * .5f, s * .82f, stroke)
+                canvas.drawLine(s * .38f, s * .82f, s * .62f, s * .82f, stroke)
+            }
             NOTE -> {
                 canvas.drawOval(RectF(s * .24f, s * .60f, s * .44f, s * .76f), fill)
                 canvas.drawOval(RectF(s * .56f, s * .52f, s * .76f, s * .68f), fill)
@@ -253,5 +260,6 @@ class Glyph(private val kind: Int, color: Int = Ui.TEXT) : Drawable() {
         const val RAIN = 14
         const val CLOSE = 15
         const val BACK = 16
+        const val MIC = 17
     }
 }

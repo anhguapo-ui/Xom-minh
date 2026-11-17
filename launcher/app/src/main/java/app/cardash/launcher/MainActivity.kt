@@ -16,7 +16,13 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
+import android.speech.RecognizerIntent
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.text.InputType
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.TypedValue
@@ -77,6 +83,19 @@ class MainActivity : Activity() {
     private lateinit var videoLayer: View
     private lateinit var webHolder: FrameLayout
 
+    // Trợ lý giọng nói.
+    private lateinit var voice: VoiceInput
+    private var speaker: TextToSpeech? = null
+    private var speakerReady = false
+    private var pendingVoice = false
+    private var resumeMusic = false
+    private val handler = Handler(Looper.getMainLooper())
+    private val closeAssistant = Runnable { hideAssistant() }
+    private lateinit var assistPanel: View
+    private lateinit var assistStatus: TextView
+    private lateinit var assistHeard: TextView
+    private lateinit var assistReply: TextView
+
     private lateinit var background: ImageView
     private lateinit var host: FrameLayout
     private lateinit var root: LinearLayout
@@ -122,6 +141,36 @@ class MainActivity : Activity() {
         media = MediaCenter(this) { updateMedia() }
         location = LocationHub(this) { updateLocation() }
         weather = Weather { updateWeather() }
+        voice = VoiceInput(
+            this,
+            onPartial = { if (built) assistHeard.text = it },
+            onFinal = { handleQuery(it) },
+            onError = { finishAssistant(it, speak = false) }
+        )
+        speaker = try {
+            TextToSpeech(this) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    speakerReady = true
+                    speaker?.language = Locale("vi", "VN")
+                    speaker?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                        override fun onStart(utteranceId: String?) {}
+                        override fun onDone(utteranceId: String?) {
+                            handler.removeCallbacks(closeAssistant)
+                            handler.postDelayed(closeAssistant, 2500)
+                        }
+
+                        @Deprecated("Deprecated in Java")
+                        override fun onError(utteranceId: String?) {
+                            handler.removeCallbacks(closeAssistant)
+                            handler.postDelayed(closeAssistant, 5000)
+                        }
+                    })
+                }
+            }
+        } catch (e: Exception) {
+            null
+        }
+        pendingVoice = isVoiceIntent(intent)
 
         // Nền và khung chứa; giao diện chỉ được dựng khi đã biết vùng thực sự được cấp
         // (màn xe thường bị thanh điều khiển của hãng chiếm mất một phần).
@@ -162,6 +211,9 @@ class MainActivity : Activity() {
             it.destroy()
         }
         web = null
+        handler.removeCallbacks(closeAssistant)
+        voice.stop()
+        speaker?.shutdown()
         super.onDestroy()
     }
 
@@ -184,6 +236,8 @@ class MainActivity : Activity() {
         unregisterReceiver(timeReceiver)
         // Rời launcher (mở app khác) thì tạm dừng video.
         exitFullscreen()
+        // Giữ câu đang đọc (ví dụ "Đang chỉ đường…") khi lệnh vừa mở app khác.
+        if (built) hideAssistant(stopSpeech = false)
         web?.onPause()
         media.stop()
         location.stop()
@@ -207,7 +261,11 @@ class MainActivity : Activity() {
     /** Bấm nút Home khi đang ở launcher: quay về trang tổng quan. */
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        if (built && intent?.hasCategory(Intent.CATEGORY_HOME) == true) showPage(false)
+        if (isVoiceIntent(intent)) {
+            if (built) startVoice() else pendingVoice = true
+        } else if (built && intent?.hasCategory(Intent.CATEGORY_HOME) == true) {
+            showPage(false)
+        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -216,6 +274,7 @@ class MainActivity : Activity() {
         val w = web
         when {
             fullscreenView != null -> exitFullscreen()
+            built && assistPanel.visibility == View.VISIBLE -> hideAssistant()
             built && showGrid -> showPage(false)
             built && videoOn && w != null && w.canGoBack() -> w.goBack()
         }
@@ -227,6 +286,10 @@ class MainActivity : Activity() {
             location.start()
             updateLocation()
         }
+        if (code == REQ_MIC) {
+            if (results.isNotEmpty() && results[0] == PackageManager.PERMISSION_GRANTED) startVoice()
+            else toast("Cần quyền micro để dùng trợ lý giọng nói")
+        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -234,6 +297,13 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         val uri = data?.data
         if (requestCode == REQ_WALLPAPER && resultCode == RESULT_OK && uri != null) importWallpaper(uri)
+        if (requestCode == REQ_SPEECH && built) {
+            val text = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (resultCode == RESULT_OK && !text.isNullOrBlank()) {
+                showAssistant("Đang xử lý…", text, "")
+                handleQuery(text)
+            }
+        }
     }
 
     // ---------- Dựng giao diện ----------
@@ -263,6 +333,10 @@ class MainActivity : Activity() {
         updateMedia()
         updateLocation()
         updateWeather()
+        if (pendingVoice) {
+            pendingVoice = false
+            startVoice()
+        }
     }
 
     private fun buildUi() {
@@ -431,7 +505,19 @@ class MainActivity : Activity() {
             visibility = View.GONE
             setOnClickListener { map.recenter() }
         }
-        card.addView(recenter, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply {
+        card.addView(recenter, FrameLayout.LayoutParams(btn, btn, Gravity.BOTTOM or Gravity.END).apply {
+            setMargins(m, m, m + (u(13f) - btn) / 2, m + u(13f) + u(1.5f))
+        })
+
+        // Nút gọi trợ lý giọng nói; nhấn giữ để gõ yêu cầu bằng chữ.
+        val mic = iconButton(Glyph.MIC, btn).apply {
+            setImageDrawable(Glyph(Glyph.MIC, 0xFF0B0E13.toInt()))
+            background = Ui.pressable(Ui.accent, btn / 2f)
+            contentDescription = "Trợ lý giọng nói"
+            setOnClickListener { startVoice() }
+            setOnLongClickListener { askByText(); true }
+        }
+        card.addView(mic, FrameLayout.LayoutParams(btn, btn, Gravity.TOP or Gravity.END).apply {
             setMargins(m, m, m, m)
         })
 
@@ -503,8 +589,52 @@ class MainActivity : Activity() {
         videoLayer = buildVideoLayer()
         outer.addView(card, FrameLayout.LayoutParams(-1, -1))
         outer.addView(videoLayer, FrameLayout.LayoutParams(-1, -1))
+        outer.addView(
+            buildAssistPanel(),
+            FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply { setMargins(m, m, m, m) }
+        )
         showVideo(videoOn)
         return outer
+    }
+
+    /** Bảng trợ lý phủ phần dưới khung bản đồ: trạng thái, câu vừa nghe, câu trả lời. */
+    private fun buildAssistPanel(): View {
+        val wasOpen = built && assistPanel.visibility == View.VISIBLE
+        val old = if (built) Triple(assistStatus.text, assistHeard.text, assistReply.text) else null
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = Ui.rounded(0xF50E1116.toInt(), unit * 3f).apply { setStroke(hairline, Ui.accent) }
+            setPadding(u(2.5f), u(1.5f), u(1.5f), u(2.2f))
+            isClickable = true
+            visibility = if (wasOpen) View.VISIBLE else View.GONE
+        }
+        val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        assistStatus = Ui.text(this, 15f, Ui.accent, bold = true).apply { px(unit * 3.1f) }
+        head.addView(assistStatus, LinearLayout.LayoutParams(0, -2, 1f))
+        val small = u(7f)
+        head.addView(iconButton(Glyph.MIC, small).apply {
+            contentDescription = "Nói lại"
+            setOnClickListener { startVoice() }
+        }, LinearLayout.LayoutParams(small, small))
+        head.addView(iconButton(Glyph.CLOSE, small).apply {
+            contentDescription = "Đóng trợ lý"
+            setOnClickListener { hideAssistant() }
+        }, LinearLayout.LayoutParams(small, small))
+        panel.addView(head, LinearLayout.LayoutParams(-1, -2))
+        assistHeard = Ui.text(this, 14f, Ui.TEXT_DIM, lines = 2).apply { px(unit * 2.9f) }
+        assistReply = Ui.text(this, 16f, lines = 6).apply {
+            px(unit * 3.3f)
+            setLineSpacing(0f, 1.15f)
+        }
+        panel.addView(assistHeard, LinearLayout.LayoutParams(-1, -2))
+        panel.addView(assistReply, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(1f) })
+        if (old != null) {
+            assistStatus.text = old.first
+            assistHeard.text = old.second
+            assistReply.text = old.third
+        }
+        assistPanel = panel
+        return panel
     }
 
     /** Lớp YouTube: dải nút hẹp bên trái, trang YouTube bên phải. */
@@ -529,6 +659,12 @@ class MainActivity : Activity() {
             setImageDrawable(Glyph(Glyph.PLAY, 0xFFE53935.toInt()))
             contentDescription = "Trang chủ YouTube"
             setOnClickListener { web?.loadUrl(YOUTUBE_HOME) }
+        }, LinearLayout.LayoutParams(btn, btn).apply { topMargin = u(1f) })
+        strip.addView(iconButton(Glyph.MIC, btn).apply {
+            setImageDrawable(Glyph(Glyph.MIC, Ui.accent))
+            contentDescription = "Trợ lý giọng nói"
+            setOnClickListener { startVoice() }
+            setOnLongClickListener { askByText(); true }
         }, LinearLayout.LayoutParams(btn, btn).apply { topMargin = u(1f) })
         layer.addView(strip, LinearLayout.LayoutParams(-2, -1))
 
@@ -930,6 +1066,201 @@ class MainActivity : Activity() {
         prefs.setSlots(Prefs.DOCK, dock + List(Prefs.SLOTS - dock.size) { "" })
     }
 
+    // ---------- Trợ lý giọng nói ----------
+
+    private fun isVoiceIntent(intent: Intent?): Boolean = when (intent?.action) {
+        Intent.ACTION_VOICE_COMMAND, Intent.ACTION_ASSIST, Intent.ACTION_SEARCH_LONG_PRESS,
+        "android.intent.action.VOICE_ASSIST", "android.speech.action.VOICE_SEARCH_HANDS_FREE" -> true
+        else -> false
+    }
+
+    private fun showAssistant(status: String, heard: String, reply: String) {
+        handler.removeCallbacks(closeAssistant)
+        assistStatus.text = status
+        assistHeard.text = heard
+        assistHeard.visibility = if (heard.isEmpty()) View.GONE else View.VISIBLE
+        assistReply.text = reply
+        assistPanel.visibility = View.VISIBLE
+    }
+
+    private fun hideAssistant(stopSpeech: Boolean = true) {
+        handler.removeCallbacks(closeAssistant)
+        voice.stop()
+        if (stopSpeech) speaker?.stop()
+        assistPanel.visibility = View.GONE
+        if (resumeMusic) {
+            resumeMusic = false
+            if (!media.isPlaying) media.playPause()
+        }
+    }
+
+    /** Bắt đầu nghe. Gọi từ nút micro, từ nút vô lăng, hoặc sau khi được cấp quyền micro. */
+    private fun startVoice() {
+        if (!built) {
+            pendingVoice = true
+            return
+        }
+        showPage(false)
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
+            return
+        }
+        handler.removeCallbacks(closeAssistant)
+        speaker?.stop()
+        // Tạm dừng nhạc để micro không thu lẫn tiếng nhạc; đóng bảng sẽ phát lại.
+        if (media.isPlaying) {
+            media.playPause()
+            resumeMusic = true
+        }
+        if (!voice.available()) {
+            // Máy không có dịch vụ nhận giọng chạy ngầm: thử hộp thoại nhận giọng, rồi tới gõ chữ.
+            try {
+                startActivityForResult(voice.intent(), REQ_SPEECH)
+            } catch (e: Exception) {
+                toast("Máy này không có dịch vụ nhận giọng nói, bạn gõ yêu cầu nhé")
+                askByText()
+            }
+            return
+        }
+        showAssistant("Đang nghe…", "", "Ví dụ: \"chỉ đường tới Hồ Gươm\", \"mở Lạc Trôi trên YouTube\", \"hôm nay có mưa không\"")
+        try {
+            voice.start()
+        } catch (e: Exception) {
+            finishAssistant("Không khởi động được micro", speak = false)
+        }
+    }
+
+    /** Gõ yêu cầu bằng chữ: dùng khi micro hoặc dịch vụ nhận giọng không hoạt động. */
+    private fun askByText() {
+        if (!built) return
+        val input = EditText(this).apply {
+            hint = "Ví dụ: chỉ đường tới Hồ Gươm"
+            setSingleLine()
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Hỏi trợ lý")
+            .setView(input)
+            .setPositiveButton("Gửi") { _, _ ->
+                val text = input.text.toString().trim()
+                if (text.isNotEmpty()) {
+                    showPage(false)
+                    showAssistant("Đang xử lý…", text, "")
+                    handleQuery(text)
+                }
+            }
+            .setNegativeButton("Huỷ", null)
+            .show()
+    }
+
+    private fun handleQuery(text: String) {
+        if (!built) return
+        showAssistant("Đang xử lý…", "\"" + text + "\"", "")
+        val key = prefs.geminiKey
+        if (key.isEmpty()) {
+            val local = Command.local(text)
+            if (local != null) perform(local)
+            else finishAssistant("Chưa có khoá Gemini nên mình chỉ hiểu lệnh đơn giản. Vào Cài đặt, mục Khoá Gemini để dán khoá.")
+            return
+        }
+        val apps = repo.all.map { it.label }
+        val now = SimpleDateFormat("EEEE dd/MM/yyyy HH:mm", Locale("vi", "VN")).format(Date())
+        val context = "Thời điểm: $now." + (weather.temp?.let { " Thời tiết: $it độ, ${weather.description}." } ?: "")
+        Thread {
+            var command: Command? = null
+            var error = ""
+            try {
+                command = Gemini.ask(key, text, apps, context)
+            } catch (e: Exception) {
+                error = e.message ?: "không rõ nguyên nhân"
+            }
+            runOnUiThread {
+                if (!built || assistPanel.visibility != View.VISIBLE) return@runOnUiThread
+                val result = command ?: Command.local(text)
+                if (result != null) perform(result)
+                else finishAssistant("Gemini báo lỗi, $error", speak = false)
+            }
+        }.start()
+    }
+
+    /** Thực hiện lệnh rồi hiện và đọc câu trả lời. */
+    private fun perform(c: Command) {
+        var reply = c.reply
+        when (c.action) {
+            Command.OPEN_APP -> {
+                val app = findApp(c.app.ifEmpty { c.query })
+                if (app != null) launch(app) else reply = "Mình không thấy ứng dụng " + c.app + " trên máy"
+            }
+            Command.NAVIGATE -> {
+                val q = Uri.encode(c.query)
+                val nav = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$q"))
+                    .setPackage("com.google.android.apps.maps")
+                if (packageManager.resolveActivity(nav, 0) != null) open(nav)
+                else open(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$q")))
+            }
+            Command.YOUTUBE -> {
+                resumeMusic = false
+                showVideo(true)
+                web?.loadUrl(YOUTUBE_HOME + "results?search_query=" + Uri.encode(c.query))
+            }
+            Command.PLAY -> {
+                resumeMusic = false
+                if (!media.isPlaying) media.playPause()
+            }
+            Command.PAUSE -> {
+                resumeMusic = false
+                if (media.isPlaying) media.playPause()
+            }
+            Command.NEXT -> media.next()
+            Command.PREVIOUS -> media.previous()
+            Command.HOME -> showVideo(false)
+        }
+        finishAssistant(reply.ifEmpty { "Xong rồi" })
+    }
+
+    /** Tìm app theo tên người dùng nói: khớp đúng tên trước, rồi tới chứa tên, không phân biệt dấu. */
+    private fun findApp(name: String): AppEntry? {
+        fun plain(s: String) = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{M}+"), "").replace('đ', 'd').replace(Regex("[^a-z0-9]"), "")
+        val want = plain(name)
+        if (want.isEmpty()) return null
+        return repo.all.firstOrNull { plain(it.label) == want }
+            ?: repo.all.firstOrNull { plain(it.label).contains(want) }
+            ?: repo.all.firstOrNull { want.contains(plain(it.label)) && plain(it.label).length >= 3 }
+    }
+
+    private fun finishAssistant(reply: String, speak: Boolean = true) {
+        if (!built) return
+        voice.stop()
+        showAssistant("Trợ lý", assistHeard.text.toString(), reply)
+        val tts = speaker
+        if (speak && speakerReady && tts != null) {
+            tts.speak(reply, TextToSpeech.QUEUE_FLUSH, null, "cardash")
+            // Phòng khi máy không báo đọc xong.
+            handler.postDelayed(closeAssistant, 30_000)
+        } else {
+            handler.postDelayed(closeAssistant, 7000)
+        }
+    }
+
+    private fun openGeminiKey() {
+        val input = EditText(this).apply {
+            hint = "Dán khoá Gemini vào đây"
+            setSingleLine()
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+            setText(prefs.geminiKey)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Khoá Gemini")
+            .setMessage("Khoá chỉ lưu trên màn hình này và chỉ gửi tới máy chủ Google khi bạn hỏi trợ lý.")
+            .setView(input)
+            .setPositiveButton("Lưu") { _, _ ->
+                prefs.geminiKey = input.text.toString()
+                toast(if (prefs.geminiKey.isEmpty()) "Đã xoá khoá Gemini" else "Đã lưu khoá Gemini")
+            }
+            .setNegativeButton("Huỷ", null)
+            .show()
+    }
+
     // ---------- Hành động ----------
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
@@ -1147,7 +1478,9 @@ class MainActivity : Activity() {
             "Chỉnh lề trên / dưới",
             if (showHidden) "Giấu lại các ứng dụng đã ẩn" else "Hiện cả ứng dụng đã ẩn",
             "Đặt lại số liệu chuyến đi",
-            "Cài đặt hệ thống"
+            "Cài đặt hệ thống",
+            if (prefs.geminiKey.isEmpty()) "Khoá Gemini: chưa nhập" else "Khoá Gemini: đã nhập",
+            "Hỏi trợ lý bằng cách gõ chữ"
         )
         AlertDialog.Builder(this)
             .setTitle("Cài đặt CarDash")
@@ -1187,6 +1520,8 @@ class MainActivity : Activity() {
                     }
                     9 -> location.resetTrip()
                     10 -> open(Intent(Settings.ACTION_SETTINGS))
+                    11 -> openGeminiKey()
+                    12 -> askByText()
                 }
             }
             .show()
@@ -1215,6 +1550,8 @@ class MainActivity : Activity() {
         private const val REQ_HOME = 1
         private const val REQ_LOCATION = 2
         private const val REQ_WALLPAPER = 3
+        private const val REQ_MIC = 4
+        private const val REQ_SPEECH = 5
         private const val YOUTUBE_HOME = "https://m.youtube.com/"
     }
 }
