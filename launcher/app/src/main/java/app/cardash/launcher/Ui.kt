@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Canvas
 import android.graphics.ColorFilter
+import android.graphics.Outline
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
@@ -14,6 +15,8 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.text.TextUtils
 import android.view.Gravity
+import android.view.View
+import android.view.ViewOutlineProvider
 import android.widget.TextView
 
 object Ui {
@@ -21,7 +24,14 @@ object Ui {
     const val TEXT_DIM = 0xB3FFFFFF.toInt()
     const val CARD = 0x24FFFFFF
     const val DOCK = 0x59000000
-    const val ACCENT = 0xFF4DA3FF.toInt()
+    val ACCENTS = intArrayOf(
+        0xFF4DA3FF.toInt(), 0xFF2DD4BF.toInt(), 0xFF4ADE80.toInt(),
+        0xFFFB923C.toInt(), 0xFFF87171.toInt(), 0xFFA78BFA.toInt()
+    )
+    val ACCENT_NAMES = arrayOf("Xanh dương", "Xanh ngọc", "Xanh lá", "Cam", "Đỏ", "Tím")
+
+    /** Màu nhấn đang dùng; MainActivity đặt lại theo lựa chọn đã lưu. */
+    var accent = ACCENTS[0]
 
     /** Các bộ màu nền; đổi trong phần Cài đặt. */
     val WALLPAPERS = arrayOf(
@@ -39,6 +49,25 @@ object Ui {
     fun rounded(color: Int, radius: Float): GradientDrawable = GradientDrawable().apply {
         setColor(color)
         cornerRadius = radius
+    }
+
+    /** Thẻ tối bóng: chuyển sắc nhẹ từ trên xuống, viền sáng mảnh. */
+    fun glass(radius: Float, strokePx: Int): GradientDrawable = GradientDrawable(
+        GradientDrawable.Orientation.TOP_BOTTOM,
+        intArrayOf(0xEB2C323E.toInt(), 0xEB14171D.toInt())
+    ).apply {
+        cornerRadius = radius
+        setStroke(strokePx, 0x24FFFFFF)
+    }
+
+    /** Cắt nội dung của view theo góc bo. */
+    fun clipRound(view: View, radius: Float) {
+        view.clipToOutline = true
+        view.outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(v: View, outline: Outline) {
+                outline.setRoundRect(0, 0, v.width, v.height, radius)
+            }
+        }
     }
 
     /** Nền bo góc có hiệu ứng gợn khi chạm. */
@@ -125,6 +154,38 @@ class Glyph(private val kind: Int, color: Int = Ui.TEXT) : Drawable() {
                     canvas.restore()
                 }
             }
+            MINUS -> canvas.drawLine(s * .28f, s * .5f, s * .72f, s * .5f, stroke)
+            TARGET -> {
+                canvas.drawCircle(s / 2f, s / 2f, s * .24f, stroke)
+                canvas.drawCircle(s / 2f, s / 2f, s * .08f, fill)
+                canvas.drawLine(s * .5f, s * .12f, s * .5f, s * .22f, stroke)
+                canvas.drawLine(s * .5f, s * .78f, s * .5f, s * .88f, stroke)
+                canvas.drawLine(s * .12f, s * .5f, s * .22f, s * .5f, stroke)
+                canvas.drawLine(s * .78f, s * .5f, s * .88f, s * .5f, stroke)
+            }
+            SEARCH -> {
+                canvas.drawCircle(s * .44f, s * .44f, s * .2f, stroke)
+                canvas.drawLine(s * .6f, s * .6f, s * .78f, s * .78f, stroke)
+            }
+            SUN -> {
+                canvas.drawCircle(s / 2f, s / 2f, s * .2f, fill)
+                stroke.strokeWidth = s * .07f
+                for (i in 0 until 8) {
+                    canvas.save()
+                    canvas.rotate(45f * i, s / 2f, s / 2f)
+                    canvas.drawLine(s / 2f, s * .12f, s / 2f, s * .2f, stroke)
+                    canvas.restore()
+                }
+            }
+            CLOUD -> cloud(canvas, s, 0f)
+            RAIN -> {
+                cloud(canvas, s, -s * .1f)
+                stroke.strokeWidth = s * .06f
+                for (i in 0..2) {
+                    val x = s * (0.36f + 0.16f * i)
+                    canvas.drawLine(x, s * .72f, x - s * .05f, s * .86f, stroke)
+                }
+            }
             NOTE -> {
                 canvas.drawOval(RectF(s * .24f, s * .60f, s * .44f, s * .76f), fill)
                 canvas.drawOval(RectF(s * .56f, s * .52f, s * .76f, s * .68f), fill)
@@ -135,6 +196,15 @@ class Glyph(private val kind: Int, color: Int = Ui.TEXT) : Drawable() {
             }
         }
         canvas.restore()
+    }
+
+    private fun cloud(canvas: Canvas, s: Float, dy: Float) {
+        canvas.drawCircle(s * .36f, s * .56f + dy, s * .15f, fill)
+        canvas.drawCircle(s * .52f, s * .44f + dy, s * .2f, fill)
+        canvas.drawCircle(s * .68f, s * .56f + dy, s * .14f, fill)
+        canvas.drawRoundRect(
+            RectF(s * .24f, s * .52f + dy, s * .8f, s * .7f + dy), s * .09f, s * .09f, fill
+        )
     }
 
     private fun triangle(s: Float, left: Float, right: Float) = Path().apply {
@@ -167,5 +237,11 @@ class Glyph(private val kind: Int, color: Int = Ui.TEXT) : Drawable() {
         const val PLUS = 6
         const val GEAR = 7
         const val NOTE = 8
+        const val MINUS = 9
+        const val TARGET = 10
+        const val SEARCH = 11
+        const val SUN = 12
+        const val CLOUD = 13
+        const val RAIN = 14
     }
 }

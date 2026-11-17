@@ -1,6 +1,8 @@
 # CarDash – launcher cho màn hình Android ô tô
 
-Màn hình chính kiểu bảng điều khiển xe: thanh bên ghim app, trang tổng quan (đồng hồ + lịch âm, điều khiển nhạc, 4 lối tắt) và lưới toàn bộ ứng dụng. Dùng cá nhân, không phụ thuộc thư viện ngoài.
+Màn hình chính kiểu bảng điều khiển xe, ưu tiên màn dọc: bản đồ nền tối có chấm vị trí và tốc độ GPS, các thẻ thời tiết, nhạc, đồng hồ + lịch âm, 6 app hay dùng, thanh dock ghim 6 app và lưới toàn bộ ứng dụng. Dùng cá nhân, không phụ thuộc thư viện ngoài.
+
+Bản đồ dùng ô ảnh OpenStreetMap, thời tiết dùng Open-Meteo; cả hai miễn phí, không cần khoá, cần có mạng.
 
 ## Lấy file APK
 Mỗi lần đẩy code vào thư mục `launcher/`, GitHub Actions tự build. Vào tab **Actions** → **Build CarDash APK** → lần chạy mới nhất → tải mục **CarDash-apk** (file zip chứa APK).
@@ -8,9 +10,11 @@ Mỗi lần đẩy code vào thư mục `launcher/`, GitHub Actions tự build. 
 Mọi bản build ký cùng một khoá (`keystore/cardash.jks`) nên cài bản mới đè lên bản cũ được.
 
 ## Cách dùng
-- **Nút ở cuối thanh bên**: chuyển giữa trang tổng quan và lưới ứng dụng; nhấn giữ để mở Cài đặt.
-- **Nhấn giữ một app trong lưới**: ghim vào thanh bên, đặt làm lối tắt, ẩn, xem thông tin, gỡ cài đặt.
+- **Bản đồ**: kéo để xem chỗ khác, nút +/− để phóng, chạm để mở Google Maps. Dòng chuyến đi (phút · km) chỉ tính khi CarDash đang hiện; nhấn giữ để đặt lại.
+- **Nút lưới ở đầu dock**: chuyển giữa trang tổng quan và lưới ứng dụng; nhấn giữ để mở Cài đặt.
+- **Nhấn giữ một app trong lưới**: ghim vào dock, thêm vào thẻ app hay dùng, ẩn, xem thông tin, gỡ cài đặt.
 - **Ô có dấu +**: chạm để chọn app; nhấn giữ ô đã có app để đổi hoặc bỏ.
+- **Cài đặt**: chọn ảnh nền, màu nhấn, và chỉnh lề trên/dưới nếu thanh điều khiển của xe che mất nội dung.
 - **Thẻ nhạc**: nút lùi/phát/tới dùng được ngay; muốn hiện tên bài và ảnh bìa thì chạm vào thẻ để cấp quyền truy cập thông báo.
 
 ## Build trên máy

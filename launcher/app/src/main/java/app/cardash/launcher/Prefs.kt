@@ -26,6 +26,28 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("wallpaper", 0)
         set(v) = sp.edit().putInt("wallpaper", v).apply()
 
+    /** true: dùng ảnh người dùng chọn làm nền; false: dùng nền màu. */
+    var wallpaperImage: Boolean
+        get() = sp.getBoolean("wallpaperImage", false)
+        set(v) = sp.edit().putBoolean("wallpaperImage", v).apply()
+
+    var accent: Int
+        get() = sp.getInt("accent", 0)
+        set(v) = sp.edit().putInt("accent", v).apply()
+
+    /** Lề thêm ở trên/dưới (tính theo bậc) cho màn có thanh điều khiển của xe che mất. */
+    var padTop: Int
+        get() = sp.getInt("padTop", 0)
+        set(v) = sp.edit().putInt("padTop", v.coerceIn(0, 12)).apply()
+
+    var padBottom: Int
+        get() = sp.getInt("padBottom", 0)
+        set(v) = sp.edit().putInt("padBottom", v.coerceIn(0, 12)).apply()
+
+    var askedLocation: Boolean
+        get() = sp.getBoolean("askedLocation", false)
+        set(v) = sp.edit().putBoolean("askedLocation", v).apply()
+
     var seeded: Boolean
         get() = sp.getBoolean("seeded", false)
         set(v) = sp.edit().putBoolean("seeded", v).apply()
@@ -35,7 +57,7 @@ class Prefs(ctx: Context) {
         set(v) = sp.edit().putBoolean("askedDefault", v).apply()
 
     companion object {
-        const val SLOTS = 4
+        const val SLOTS = 6
         const val DOCK = "dock"
         const val SHORTCUTS = "shortcuts"
     }
