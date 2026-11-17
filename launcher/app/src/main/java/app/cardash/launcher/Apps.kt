@@ -102,7 +102,8 @@ class AppRepo(private val ctx: Context) {
             d.background?.let { it.setBounds(-ext, -ext, s + ext, s + ext); it.draw(c) }
             d.foreground?.let { it.setBounds(-ext, -ext, s + ext, s + ext); it.draw(c) }
         } else {
-            c.drawColor(0xFFF1F3F6.toInt())
+            // Icon kiểu cũ: đặt trên tấm nền tối cho hợp tông giao diện.
+            c.drawColor(0xFF39404E.toInt())
             val inset = (s * 0.11f).toInt()
             d.setBounds(inset, inset, s - inset, s - inset)
             d.draw(c)

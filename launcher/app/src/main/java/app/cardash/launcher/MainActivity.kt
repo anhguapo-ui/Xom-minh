@@ -9,7 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
@@ -42,7 +41,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Màn hình chính: bản đồ có tốc độ GPS, các thẻ thời tiết / nhạc / đồng hồ / app hay dùng,
+ * Màn hình chính: bản đồ có tốc độ GPS, thẻ "Hôm nay" (thời tiết, ngày, lịch âm), thẻ nhạc,
  * thanh dock ghim app và trang lưới toàn bộ ứng dụng.
  */
 class MainActivity : Activity() {
@@ -59,32 +58,32 @@ class MainActivity : Activity() {
     private var query = ""
     private var visibleApps: List<AppEntry> = emptyList()
 
+    private var built = false
+    private var areaW = 0
+    private var areaH = 0
+
     private lateinit var background: ImageView
+    private lateinit var host: FrameLayout
     private lateinit var root: LinearLayout
     private lateinit var dashPage: View
     private lateinit var gridPage: View
     private lateinit var toggle: ImageView
-    private lateinit var dockClock: TextView
     private lateinit var map: MapView
     private lateinit var recenter: ImageView
     private lateinit var speedText: TextView
     private lateinit var mapStatus: TextView
     private lateinit var weatherIcon: ImageView
     private lateinit var weatherTemp: TextView
-    private lateinit var weatherRange: TextView
     private lateinit var weatherDesc: TextView
-    private lateinit var bigClock: TextView
     private lateinit var dateLine: TextView
     private lateinit var lunarLine: TextView
     private lateinit var songArt: ImageView
-    private lateinit var songScrim: View
     private lateinit var songTitle: TextView
     private lateinit var songArtist: TextView
     private lateinit var playButton: ImageView
     private lateinit var search: EditText
     private lateinit var gridTitle: TextView
     private val dockSlots = ArrayList<ImageView>()
-    private val shortcutIcons = ArrayList<ImageView>()
     private val gridAdapter = GridAdapter()
 
     private val wallpaperFile: File get() = File(filesDir, "wallpaper.jpg")
@@ -109,11 +108,24 @@ class MainActivity : Activity() {
         location = LocationHub(this) { updateLocation() }
         weather = Weather { updateWeather() }
 
-        val dm = resources.displayMetrics
-        landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        unit = minOf(dm.widthPixels, dm.heightPixels) / 100f
-
-        buildUi()
+        // Nền và khung chứa; giao diện chỉ được dựng khi đã biết vùng thực sự được cấp
+        // (màn xe thường bị thanh điều khiển của hãng chiếm mất một phần).
+        val frame = FrameLayout(this)
+        background = ImageView(this)
+        frame.addView(background, FrameLayout.LayoutParams(-1, -1))
+        applyWallpaper()
+        host = FrameLayout(this).apply { fitsSystemWindows = true }
+        frame.addView(host, FrameLayout.LayoutParams(-1, -1))
+        setContentView(frame)
+        host.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            val w = v.width - v.paddingLeft - v.paddingRight
+            val h = v.height - v.paddingTop - v.paddingBottom
+            if (w > 0 && h > 0 && (w != areaW || h != areaH)) {
+                areaW = w
+                areaH = h
+                host.post { rebuild() }
+            }
+        }
         registerReceiver(packageReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED)
@@ -171,13 +183,13 @@ class MainActivity : Activity() {
     /** Bấm nút Home khi đang ở launcher: quay về trang tổng quan. */
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        if (intent?.hasCategory(Intent.CATEGORY_HOME) == true) showPage(false)
+        if (built && intent?.hasCategory(Intent.CATEGORY_HOME) == true) showPage(false)
     }
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         // Launcher không được thoát; nút Back chỉ đưa về trang tổng quan.
-        if (showGrid) showPage(false)
+        if (built && showGrid) showPage(false)
     }
 
     override fun onRequestPermissionsResult(code: Int, permissions: Array<out String>, results: IntArray) {
@@ -207,22 +219,30 @@ class MainActivity : Activity() {
     private val radius: Float get() = unit * 3.6f
     private val hairline: Int get() = maxOf(1, dp(1f))
 
+    /** Dựng lại toàn bộ giao diện theo vùng hiển thị hiện tại rồi đổ lại nội dung. */
+    private fun rebuild() {
+        if (areaW <= 0 || areaH <= 0) return
+        val h = areaH - (prefs.padTop + prefs.padBottom) * (areaW / 50)
+        landscape = areaW > h * 1.25f
+        // Mọi kích thước tính theo "unit" sao cho đủ chỗ cả chiều ngang lẫn chiều dọc.
+        unit = if (landscape) minOf(areaW / 120f, h / 62f) else minOf(areaW / 100f, h / 80f)
+        buildUi()
+        built = true
+        refreshSlots()
+        refreshGrid()
+        updateClock()
+        updateMedia()
+        updateLocation()
+        updateWeather()
+    }
+
     private fun buildUi() {
         val gap = u(1.5f)
-        val frame = FrameLayout(this)
-        background = ImageView(this)
-        frame.addView(background, FrameLayout.LayoutParams(-1, -1))
-        applyWallpaper()
-
+        val pad = areaW / 50
         root = LinearLayout(this).apply {
             orientation = if (landscape) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
-            fitsSystemWindows = true
             isFocusableInTouchMode = true
-        }
-        // Lớp đệm bên trong để cộng thêm lề người dùng tự chỉnh mà không đè lên lề hệ thống.
-        val inner = LinearLayout(this).apply {
-            orientation = root.orientation
-            setPadding(gap, gap + prefs.padTop * u(2f), gap, gap + prefs.padBottom * u(2f))
+            setPadding(gap, gap + prefs.padTop * pad, gap, gap + prefs.padBottom * pad)
         }
         val content = FrameLayout(this)
         dashPage = buildDash()
@@ -230,17 +250,16 @@ class MainActivity : Activity() {
         content.addView(dashPage, FrameLayout.LayoutParams(-1, -1))
         content.addView(gridPage, FrameLayout.LayoutParams(-1, -1))
         val dock = buildDock()
-        val dockSize = u(12.5f)
+        val dockSize = u(12f)
         if (landscape) {
-            inner.addView(dock, LinearLayout.LayoutParams(dockSize, -1).apply { rightMargin = gap })
-            inner.addView(content, LinearLayout.LayoutParams(0, -1, 1f))
+            root.addView(dock, LinearLayout.LayoutParams(dockSize, -1).apply { rightMargin = gap })
+            root.addView(content, LinearLayout.LayoutParams(0, -1, 1f))
         } else {
-            inner.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
-            inner.addView(dock, LinearLayout.LayoutParams(-1, dockSize).apply { topMargin = gap })
+            root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
+            root.addView(dock, LinearLayout.LayoutParams(-1, dockSize).apply { topMargin = gap })
         }
-        root.addView(inner, LinearLayout.LayoutParams(-1, -1))
-        frame.addView(root, FrameLayout.LayoutParams(-1, -1))
-        setContentView(frame)
+        host.removeAllViews()
+        host.addView(root, FrameLayout.LayoutParams(-1, -1))
         showPage(showGrid)
     }
 
@@ -277,45 +296,32 @@ class MainActivity : Activity() {
             val pad = u(1.2f)
             setPadding(pad, pad, pad, pad)
         }
-        val cell = u(9.5f)
-        val space = u(1.4f)
-
+        val cell = u(9f)
         toggle = iconButton(Glyph.GRID, cell).apply {
             contentDescription = "Chuyển giữa trang chính và danh sách ứng dụng"
             setOnClickListener { showPage(!showGrid) }
             setOnLongClickListener { openSettings(); true }
         }
-        dockClock = Ui.text(this, 16f, bold = true, center = true).apply { px(unit * 3.8f) }
+        dock.addView(toggle, LinearLayout.LayoutParams(cell, cell))
 
+        // Màn ngang thấp có thể không đủ chỗ cho cả 8 ô.
+        val room = if (landscape) ((areaH / unit - 16f) / 10f).toInt() else Prefs.SLOTS
+        val count = room.coerceIn(3, Prefs.SLOTS)
         dockSlots.clear()
-        val slots = ArrayList<View>()
-        for (i in 0 until Prefs.SLOTS) {
+        for (i in 0 until count) {
             val slot = ImageView(this).apply {
                 background = Ui.pressable(0x00000000, cell * 0.225f)
-                setOnClickListener { onSlotClick(Prefs.DOCK, i) }
-                setOnLongClickListener { onSlotLongClick(Prefs.DOCK, i); true }
+                setOnClickListener { onSlotClick(i) }
+                setOnLongClickListener { onSlotLongClick(i); true }
             }
             dockSlots.add(slot)
-            slots.add(slot)
-        }
-        fun slotParams() = LinearLayout.LayoutParams(cell, cell).apply {
-            if (landscape) topMargin = space else leftMargin = space
-        }
-        fun spacer() = dock.addView(
-            View(this),
-            if (landscape) LinearLayout.LayoutParams(1, 0, 1f) else LinearLayout.LayoutParams(0, 1, 1f)
-        )
-
-        if (landscape) {
-            dock.addView(dockClock, LinearLayout.LayoutParams(-2, -2))
-            slots.forEach { dock.addView(it, slotParams()) }
-            spacer()
-            dock.addView(toggle, LinearLayout.LayoutParams(cell, cell))
-        } else {
-            dock.addView(toggle, LinearLayout.LayoutParams(cell, cell))
-            slots.forEach { dock.addView(it, slotParams()) }
-            spacer()
-            dock.addView(dockClock, LinearLayout.LayoutParams(-2, -2).apply { rightMargin = u(1.5f) })
+            // Mỗi ô nằm giữa một khoang chia đều để các icon giãn cách bằng nhau.
+            val bay = FrameLayout(this)
+            bay.addView(slot, FrameLayout.LayoutParams(cell, cell, Gravity.CENTER))
+            dock.addView(
+                bay,
+                if (landscape) LinearLayout.LayoutParams(-1, 0, 1f) else LinearLayout.LayoutParams(0, -1, 1f)
+            )
         }
         return dock
     }
@@ -325,23 +331,23 @@ class MainActivity : Activity() {
         val dash = LinearLayout(this).apply {
             orientation = if (landscape) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
         }
-        val rowA = LinearLayout(this)
-        rowA.addView(buildWeatherCard(), LinearLayout.LayoutParams(0, -1, 1f))
-        rowA.addView(buildMusicCard(), LinearLayout.LayoutParams(0, -1, 1f).apply { leftMargin = gap })
-        val rowB = LinearLayout(this)
-        rowB.addView(buildClockCard(), LinearLayout.LayoutParams(0, -1, 1f))
-        rowB.addView(buildShortcutCard(), LinearLayout.LayoutParams(0, -1, 1f).apply { leftMargin = gap })
-        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        panel.addView(rowA, LinearLayout.LayoutParams(-1, 0, 1f))
-        panel.addView(rowB, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = gap })
-
         val mapCard = buildMapCard()
+        val today = buildTodayCard()
+        val music = buildMusicCard()
         if (landscape) {
+            val side = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            side.addView(today, LinearLayout.LayoutParams(-1, 0, 1f))
+            side.addView(music, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = gap })
             dash.addView(mapCard, LinearLayout.LayoutParams(0, -1, 1f))
-            dash.addView(panel, LinearLayout.LayoutParams(0, -1, 1.15f).apply { leftMargin = gap })
+            dash.addView(side, LinearLayout.LayoutParams(u(50f), -1).apply { leftMargin = gap })
         } else {
-            dash.addView(mapCard, LinearLayout.LayoutParams(-1, 0, 1.3f))
-            dash.addView(panel, LinearLayout.LayoutParams(-1, 0, 1.2f).apply { topMargin = gap })
+            // Hàng thẻ cao vừa đủ nội dung; phần còn lại dành hết cho bản đồ.
+            val rowHeight = (areaH * 0.29f).toInt().coerceIn(u(26f), u(34f))
+            val row = LinearLayout(this)
+            row.addView(today, LinearLayout.LayoutParams(0, -1, 1f))
+            row.addView(music, LinearLayout.LayoutParams(0, -1, 1f).apply { leftMargin = gap })
+            dash.addView(mapCard, LinearLayout.LayoutParams(-1, 0, 1f))
+            dash.addView(row, LinearLayout.LayoutParams(-1, rowHeight).apply { topMargin = gap })
         }
         return dash
     }
@@ -354,6 +360,7 @@ class MainActivity : Activity() {
 
         map = MapView(this).apply {
             accent = Ui.accent
+            headingUp = prefs.headingUp
             onTap = { openMaps() }
             onFollowChanged = { recenter.visibility = if (it) View.GONE else View.VISIBLE }
         }
@@ -455,10 +462,12 @@ class MainActivity : Activity() {
         return card
     }
 
-    private fun buildWeatherCard(): View {
+    /** Thẻ "Hôm nay": thời tiết ở trên, thứ ngày và lịch âm ở dưới. */
+    private fun buildTodayCard(): View {
         val card = card().apply {
-            gravity = Gravity.CENTER
-            setPadding(u(2f), u(2f), u(2f), u(2f))
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(u(2.5f), u(2f), u(2.5f), u(2f))
             setOnClickListener {
                 val loc = location.last
                 if (loc == null) {
@@ -469,70 +478,54 @@ class MainActivity : Activity() {
                 }
             }
         }
+        val top = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         weatherIcon = ImageView(this)
-        card.addView(weatherIcon, LinearLayout.LayoutParams(u(15f), u(15f)))
+        top.addView(weatherIcon, LinearLayout.LayoutParams(u(11f), u(11f)))
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        weatherTemp = Ui.text(this, 40f).apply {
+        weatherTemp = Ui.text(this, 36f).apply {
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-            px(unit * 10f)
+            px(unit * 8.4f)
         }
-        weatherRange = Ui.text(this, 14f, Ui.TEXT_DIM).apply { px(unit * 3f) }
-        weatherDesc = Ui.text(this, 14f, lines = 2).apply { px(unit * 3f) }
+        weatherDesc = Ui.text(this, 13f, Ui.TEXT_DIM).apply { px(unit * 2.6f) }
         col.addView(weatherTemp, LinearLayout.LayoutParams(-2, -2))
-        col.addView(weatherRange, LinearLayout.LayoutParams(-2, -2).apply { topMargin = u(0.6f) })
-        col.addView(weatherDesc, LinearLayout.LayoutParams(-2, -2).apply { topMargin = u(0.6f) })
-        card.addView(col, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = u(1.5f) })
+        col.addView(weatherDesc, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(0.5f) })
+        top.addView(col, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = u(1.5f) })
+        card.addView(top, LinearLayout.LayoutParams(-1, -2))
+
+        dateLine = Ui.text(this, 16f, bold = true).apply { px(unit * 3.3f) }
+        lunarLine = Ui.text(this, 13f, Ui.TEXT_DIM).apply { px(unit * 2.7f) }
+        card.addView(dateLine, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(1.6f) })
+        card.addView(lunarLine, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(0.6f) })
         return card
     }
 
-    private fun buildClockCard(): View {
+    /** Thẻ nhạc: ảnh bìa vuông bên trái, tên bài bên phải, hàng nút lớn phía dưới. */
+    private fun buildMusicCard(): View {
         val card = card().apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(u(2f), u(2f), u(2f), u(2f))
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(u(2.2f), u(2f), u(2.2f), u(2f))
         }
-        bigClock = Ui.text(this, 48f, center = true).apply {
-            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-            px(unit * 13f)
-        }
-        dateLine = Ui.text(this, 15f, center = true).apply { px(unit * 3.2f) }
-        lunarLine = Ui.text(this, 13f, Ui.TEXT_DIM, center = true).apply { px(unit * 2.8f) }
-        card.addView(bigClock, LinearLayout.LayoutParams(-2, -2))
-        card.addView(dateLine, LinearLayout.LayoutParams(-2, -2).apply { topMargin = u(1f) })
-        card.addView(lunarLine, LinearLayout.LayoutParams(-2, -2).apply { topMargin = u(0.8f) })
-        return card
-    }
-
-    private fun buildMusicCard(): View {
-        val card = FrameLayout(this).apply { background = Ui.glass(radius, hairline) }
-        Ui.clipRound(card, radius)
-        // Ảnh bìa phủ kín thẻ, có lớp tối phía trên để chữ dễ đọc.
-        songArt = ImageView(this).apply {
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            visibility = View.GONE
-        }
-        songScrim = View(this).apply {
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0x8C000000.toInt(), 0xD9000000.toInt())
-            )
-            visibility = View.GONE
-        }
-        card.addView(songArt, FrameLayout.LayoutParams(-1, -1))
-        card.addView(songScrim, FrameLayout.LayoutParams(-1, -1))
-
-        val col = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(u(2.5f), u(2.5f), u(2.5f), u(2f))
+        val info = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
             setOnClickListener { openPlayer() }
         }
-        songTitle = Ui.text(this, 18f, bold = true).apply { px(unit * 3.8f) }
-        songArtist = Ui.text(this, 14f, Ui.TEXT_DIM, lines = 2).apply { px(unit * 2.9f) }
-        col.addView(songTitle, LinearLayout.LayoutParams(-1, -2))
-        col.addView(songArtist, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(0.8f) })
-        col.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
+        val artSize = u(11f)
+        songArt = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            background = Ui.rounded(0x26FFFFFF, unit * 2.2f)
+        }
+        Ui.clipRound(songArt, unit * 2.2f)
+        info.addView(songArt, LinearLayout.LayoutParams(artSize, artSize))
+        val text = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        songTitle = Ui.text(this, 17f, bold = true, lines = 2).apply { px(unit * 3.3f) }
+        songArtist = Ui.text(this, 13f, Ui.TEXT_DIM).apply { px(unit * 2.7f) }
+        text.addView(songTitle, LinearLayout.LayoutParams(-1, -2))
+        text.addView(songArtist, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(0.6f) })
+        info.addView(text, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = u(1.8f) })
+        card.addView(info, LinearLayout.LayoutParams(-1, -2))
 
-        val btn = u(9.5f)
+        val btn = u(8.5f)
         val controls = LinearLayout(this).apply { gravity = Gravity.CENTER }
         val prev = iconButton(Glyph.PREV, btn).apply {
             contentDescription = "Bài trước"
@@ -540,7 +533,7 @@ class MainActivity : Activity() {
         }
         playButton = ImageView(this).apply {
             background = Ui.pressable(Ui.accent, btn / 2f)
-            setPadding(btn / 4, btn / 5, btn / 4, btn / 5)
+            setPadding(btn / 2, btn / 5, btn / 2, btn / 5)
             contentDescription = "Phát hoặc tạm dừng"
             setOnClickListener { media.playPause() }
         }
@@ -549,40 +542,11 @@ class MainActivity : Activity() {
             setOnClickListener { media.next() }
         }
         controls.addView(prev, LinearLayout.LayoutParams(btn, btn))
-        controls.addView(playButton, LinearLayout.LayoutParams((btn * 1.5f).toInt(), btn).apply {
-            leftMargin = u(1.5f); rightMargin = u(1.5f)
+        controls.addView(playButton, LinearLayout.LayoutParams((btn * 1.7f).toInt(), btn).apply {
+            leftMargin = u(2f); rightMargin = u(2f)
         })
         controls.addView(next, LinearLayout.LayoutParams(btn, btn))
-        col.addView(controls, LinearLayout.LayoutParams(-1, -2))
-        card.addView(col, FrameLayout.LayoutParams(-1, -1))
-        return card
-    }
-
-    /** Thẻ app hay dùng: 2 hàng x 3 ô. */
-    private fun buildShortcutCard(): View {
-        val card = card().apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(u(1.2f), u(1.2f), u(1.2f), u(1.2f))
-        }
-        shortcutIcons.clear()
-        val size = u(10.5f)
-        val perRow = Prefs.SLOTS / 2
-        for (r in 0 until 2) {
-            val row = LinearLayout(this)
-            for (c in 0 until perRow) {
-                val i = r * perRow + c
-                val icon = ImageView(this).apply {
-                    background = Ui.pressable(0x00000000, size * 0.225f)
-                    setOnClickListener { onSlotClick(Prefs.SHORTCUTS, i) }
-                    setOnLongClickListener { onSlotLongClick(Prefs.SHORTCUTS, i); true }
-                }
-                shortcutIcons.add(icon)
-                val cell = FrameLayout(this)
-                cell.addView(icon, FrameLayout.LayoutParams(size, size, Gravity.CENTER))
-                row.addView(cell, LinearLayout.LayoutParams(0, -1, 1f))
-            }
-            card.addView(row, LinearLayout.LayoutParams(-1, 0, 1f))
-        }
+        card.addView(controls, LinearLayout.LayoutParams(-1, -2).apply { topMargin = u(1.6f) })
         return card
     }
 
@@ -687,6 +651,7 @@ class MainActivity : Activity() {
     }
 
     private fun hideKeyboard() {
+        if (!built) return
         search.clearFocus()
         root.requestFocus()
         (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
@@ -694,10 +659,8 @@ class MainActivity : Activity() {
     }
 
     private fun updateClock() {
+        if (!built) return
         val now = Date()
-        val time = android.text.format.DateFormat.getTimeFormat(this).format(now)
-        dockClock.text = time
-        bigClock.text = time
         val vi = Locale("vi", "VN")
         dateLine.text = SimpleDateFormat("EEEE, d MMMM", vi).format(now)
             .replaceFirstChar { it.titlecase(vi) }
@@ -709,9 +672,10 @@ class MainActivity : Activity() {
     }
 
     private fun updateLocation() {
+        if (!built) return
         val loc = location.last
         if (loc != null) {
-            map.setLocation(loc.latitude, loc.longitude)
+            map.setLocation(loc.latitude, loc.longitude, location.bearing)
             weather.refresh(loc.latitude, loc.longitude)
         }
         speedText.text = location.speedKmh.toInt().toString()
@@ -730,22 +694,22 @@ class MainActivity : Activity() {
     }
 
     private fun updateWeather() {
+        if (!built) return
         val t = weather.temp
         if (t == null) {
             weatherIcon.setImageDrawable(Glyph(Glyph.CLOUD, Ui.TEXT_DIM))
             weatherTemp.text = "--°"
-            weatherRange.text = ""
             weatherDesc.text = if (location.hasPermission()) "Đang chờ thời tiết" else "Cần quyền vị trí"
             return
         }
         val sunny = weather.glyph == Glyph.SUN
         weatherIcon.setImageDrawable(Glyph(weather.glyph, if (sunny) 0xFFFFC83D.toInt() else Ui.TEXT))
         weatherTemp.text = "$t°"
-        weatherRange.text = "Cao " + weather.high + "° · Thấp " + weather.low + "°"
-        weatherDesc.text = weather.description
+        weatherDesc.text = weather.description + " · " + weather.low + "°–" + weather.high + "°"
     }
 
     private fun updateMedia() {
+        if (!built) return
         val title = media.title
         when {
             title != null -> {
@@ -754,7 +718,7 @@ class MainActivity : Activity() {
             }
             !media.hasAccess() -> {
                 songTitle.text = "Điều khiển nhạc"
-                songArtist.text = "Chạm để cho phép hiện tên bài hát"
+                songArtist.text = "Chạm để hiện tên bài"
             }
             else -> {
                 songTitle.text = "Chưa phát nhạc"
@@ -762,9 +726,14 @@ class MainActivity : Activity() {
             }
         }
         val art = media.art
-        songArt.setImageBitmap(art)
-        songArt.visibility = if (art != null) View.VISIBLE else View.GONE
-        songScrim.visibility = songArt.visibility
+        if (art != null) {
+            songArt.setPadding(0, 0, 0, 0)
+            songArt.setImageBitmap(art)
+        } else {
+            val pad = u(2.6f)
+            songArt.setPadding(pad, pad, pad, pad)
+            songArt.setImageDrawable(Glyph(Glyph.NOTE, Ui.TEXT_DIM))
+        }
         playButton.setImageDrawable(
             Glyph(if (media.isPlaying) Glyph.PAUSE else Glyph.PLAY, 0xFF0B0E13.toInt())
         )
@@ -779,6 +748,7 @@ class MainActivity : Activity() {
     }
 
     private fun refreshGrid() {
+        if (!built) return
         val hidden = prefs.hidden
         val q = query.lowercase()
         visibleApps = repo.all.filter {
@@ -789,10 +759,9 @@ class MainActivity : Activity() {
     }
 
     private fun refreshSlots() {
+        if (!built) return
         val dock = prefs.slots(Prefs.DOCK)
         for (i in dockSlots.indices) bindSlot(dockSlots[i], repo.byKey(dock[i]))
-        val shortcuts = prefs.slots(Prefs.SHORTCUTS)
-        for (i in shortcutIcons.indices) bindSlot(shortcutIcons[i], repo.byKey(shortcuts[i]))
     }
 
     private fun bindSlot(icon: ImageView, app: AppEntry?) {
@@ -815,15 +784,13 @@ class MainActivity : Activity() {
         prefs.seeded = true
         val known = listOf(
             "com.google.android.apps.maps", "com.google.android.youtube", "com.zing.mp3",
-            "com.spotify.music", "com.android.chrome", "com.android.settings",
-            "com.google.android.apps.youtube.music", "com.vietmap.s1OBU", "com.waze",
-            "com.android.dialer", "com.google.android.dialer", "com.android.vending"
+            "com.spotify.music", "com.google.android.apps.youtube.music", "com.android.chrome",
+            "com.vietmap.s1OBU", "com.waze", "com.android.dialer", "com.google.android.dialer",
+            "com.android.settings", "com.android.vending"
         )
         val found = known.mapNotNull { pkg -> repo.all.firstOrNull { it.pkg == pkg } }
         val dock = found.take(Prefs.SLOTS).map { it.key }
-        val shortcuts = found.drop(Prefs.SLOTS).take(Prefs.SLOTS).map { it.key }
         prefs.setSlots(Prefs.DOCK, dock + List(Prefs.SLOTS - dock.size) { "" })
-        prefs.setSlots(Prefs.SHORTCUTS, shortcuts + List(Prefs.SLOTS - shortcuts.size) { "" })
     }
 
     // ---------- Hành động ----------
@@ -858,36 +825,36 @@ class MainActivity : Activity() {
         open(intent)
     }
 
-    private fun onSlotClick(listKey: String, index: Int) {
-        val app = repo.byKey(prefs.slots(listKey)[index])
-        if (app != null) launch(app) else pickApp(listKey, index)
+    private fun onSlotClick(index: Int) {
+        val app = repo.byKey(prefs.slots(Prefs.DOCK)[index])
+        if (app != null) launch(app) else pickApp(index)
     }
 
-    private fun onSlotLongClick(listKey: String, index: Int) {
-        val app = repo.byKey(prefs.slots(listKey)[index])
+    private fun onSlotLongClick(index: Int) {
+        val app = repo.byKey(prefs.slots(Prefs.DOCK)[index])
         if (app == null) {
-            pickApp(listKey, index)
+            pickApp(index)
             return
         }
         AlertDialog.Builder(this)
             .setTitle(app.label)
-            .setItems(arrayOf("Đổi ứng dụng khác", "Bỏ khỏi vị trí này")) { _, which ->
-                if (which == 0) pickApp(listKey, index) else setSlot(listKey, index, "")
+            .setItems(arrayOf("Đổi ứng dụng khác", "Bỏ khỏi dock")) { _, which ->
+                if (which == 0) pickApp(index) else setSlot(index, "")
             }
             .show()
     }
 
-    private fun setSlot(listKey: String, index: Int, key: String) {
-        val list = prefs.slots(listKey)
-        // Một app chỉ nằm ở một ô trong cùng danh sách.
+    private fun setSlot(index: Int, key: String) {
+        val list = prefs.slots(Prefs.DOCK)
+        // Một app chỉ nằm ở một ô.
         if (key.isNotEmpty()) for (i in list.indices) if (list[i] == key) list[i] = ""
         list[index] = key
-        prefs.setSlots(listKey, list)
+        prefs.setSlots(Prefs.DOCK, list)
         refreshSlots()
     }
 
-    /** Hộp chọn một ứng dụng để đặt vào ô [index]. */
-    private fun pickApp(listKey: String, index: Int) {
+    /** Hộp chọn một ứng dụng để đặt vào ô [index] của dock. */
+    private fun pickApp(index: Int) {
         val apps = repo.all
         if (apps.isEmpty()) {
             toast("Chưa đọc xong danh sách ứng dụng")
@@ -914,28 +881,28 @@ class MainActivity : Activity() {
         }
         AlertDialog.Builder(this)
             .setTitle("Chọn ứng dụng")
-            .setAdapter(adapter) { _, which -> setSlot(listKey, index, apps[which].key) }
+            .setAdapter(adapter) { _, which -> setSlot(index, apps[which].key) }
             .setNegativeButton("Huỷ", null)
             .show()
     }
 
-    /** Đặt [app] vào ô trống đầu tiên; hết ô thì hỏi thay ô nào. */
-    private fun assign(listKey: String, app: AppEntry) {
-        val list = prefs.slots(listKey)
+    /** Ghim [app] vào ô trống đầu tiên của dock; hết ô thì hỏi thay ô nào. */
+    private fun pin(app: AppEntry) {
+        val list = prefs.slots(Prefs.DOCK).subList(0, dockSlots.size)
         if (app.key in list) {
-            toast("Ứng dụng này đã có sẵn ở đó")
+            toast("Ứng dụng này đã có trên dock")
             return
         }
         val free = list.indexOfFirst { repo.byKey(it) == null }
         if (free >= 0) {
-            setSlot(listKey, free, app.key)
-            toast("Đã thêm " + app.label)
+            setSlot(free, app.key)
+            toast("Đã ghim " + app.label)
             return
         }
         val names = list.mapIndexed { i, key -> "Thay ô " + (i + 1) + ": " + (repo.byKey(key)?.label ?: "") }
         AlertDialog.Builder(this)
-            .setTitle("Các ô đã đầy")
-            .setItems(names.toTypedArray()) { _, which -> setSlot(listKey, which, app.key) }
+            .setTitle("Dock đã đầy")
+            .setItems(names.toTypedArray()) { _, which -> setSlot(which, app.key) }
             .setNegativeButton("Huỷ", null)
             .show()
     }
@@ -944,7 +911,6 @@ class MainActivity : Activity() {
         val hidden = app.key in prefs.hidden
         val items = arrayOf(
             "Ghim vào thanh dock",
-            "Thêm vào thẻ app hay dùng",
             if (hidden) "Hiện lại trong danh sách" else "Ẩn khỏi danh sách",
             "Thông tin ứng dụng",
             "Gỡ cài đặt"
@@ -953,16 +919,15 @@ class MainActivity : Activity() {
             .setTitle(app.label)
             .setItems(items) { _, which ->
                 when (which) {
-                    0 -> assign(Prefs.DOCK, app)
-                    1 -> assign(Prefs.SHORTCUTS, app)
-                    2 -> {
+                    0 -> pin(app)
+                    1 -> {
                         prefs.hidden = if (hidden) prefs.hidden - app.key else prefs.hidden + app.key
                         refreshGrid()
                     }
-                    3 -> open(
+                    2 -> open(
                         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + app.pkg))
                     )
-                    4 -> open(Intent(Intent.ACTION_DELETE, Uri.parse("package:" + app.pkg)))
+                    3 -> open(Intent(Intent.ACTION_DELETE, Uri.parse("package:" + app.pkg)))
                 }
             }
             .show()
@@ -1041,6 +1006,7 @@ class MainActivity : Activity() {
             "Chọn ảnh nền từ máy",
             "Dùng nền màu / đổi màu nền",
             "Màu nhấn: " + Ui.ACCENT_NAMES[prefs.accent.coerceIn(0, Ui.ACCENTS.size - 1)],
+            if (prefs.headingUp) "Bản đồ: đang xoay theo hướng xe" else "Bản đồ: đang giữ hướng Bắc ở trên",
             "Chỉnh lề trên / dưới",
             if (showHidden) "Giấu lại các ứng dụng đã ẩn" else "Hiện cả ứng dụng đã ẩn",
             "Đặt lại số liệu chuyến đi",
@@ -1069,16 +1035,21 @@ class MainActivity : Activity() {
                     }
                     5 -> {
                         prefs.accent = (prefs.accent + 1) % Ui.ACCENTS.size
-                        recreate()
+                        Ui.accent = Ui.ACCENTS[prefs.accent]
+                        rebuild()
                     }
-                    6 -> openPadding()
-                    7 -> {
+                    6 -> {
+                        prefs.headingUp = !prefs.headingUp
+                        map.headingUp = prefs.headingUp
+                    }
+                    7 -> openPadding()
+                    8 -> {
                         showHidden = !showHidden
                         refreshGrid()
                         showPage(true)
                     }
-                    8 -> location.resetTrip()
-                    9 -> open(Intent(Settings.ACTION_SETTINGS))
+                    9 -> location.resetTrip()
+                    10 -> open(Intent(Settings.ACTION_SETTINGS))
                 }
             }
             .show()
@@ -1096,13 +1067,7 @@ class MainActivity : Activity() {
                     2 -> prefs.padBottom += 1
                     3 -> prefs.padBottom -= 1
                 }
-                buildUi()
-                refreshSlots()
-                refreshGrid()
-                updateClock()
-                updateMedia()
-                updateLocation()
-                updateWeather()
+                rebuild()
                 openPadding()
             }
             .setPositiveButton("Xong", null)

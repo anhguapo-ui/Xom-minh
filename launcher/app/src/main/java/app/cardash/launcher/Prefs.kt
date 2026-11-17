@@ -44,6 +44,11 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("padBottom", 0)
         set(v) = sp.edit().putInt("padBottom", v.coerceIn(0, 12)).apply()
 
+    /** true: bản đồ xoay theo hướng xe; false: hướng Bắc luôn ở trên. */
+    var headingUp: Boolean
+        get() = sp.getBoolean("headingUp", true)
+        set(v) = sp.edit().putBoolean("headingUp", v).apply()
+
     var askedLocation: Boolean
         get() = sp.getBoolean("askedLocation", false)
         set(v) = sp.edit().putBoolean("askedLocation", v).apply()
@@ -57,8 +62,7 @@ class Prefs(ctx: Context) {
         set(v) = sp.edit().putBoolean("askedDefault", v).apply()
 
     companion object {
-        const val SLOTS = 6
+        const val SLOTS = 8
         const val DOCK = "dock"
-        const val SHORTCUTS = "shortcuts"
     }
 }

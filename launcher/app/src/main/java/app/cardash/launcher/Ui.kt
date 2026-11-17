@@ -54,7 +54,7 @@ object Ui {
     /** Thẻ tối bóng: chuyển sắc nhẹ từ trên xuống, viền sáng mảnh. */
     fun glass(radius: Float, strokePx: Int): GradientDrawable = GradientDrawable(
         GradientDrawable.Orientation.TOP_BOTTOM,
-        intArrayOf(0xEB2C323E.toInt(), 0xEB14171D.toInt())
+        intArrayOf(0xF2232832.toInt(), 0xF212151B.toInt())
     ).apply {
         cornerRadius = radius
         setStroke(strokePx, 0x24FFFFFF)

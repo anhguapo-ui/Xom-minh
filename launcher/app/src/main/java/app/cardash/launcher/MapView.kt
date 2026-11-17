@@ -1,5 +1,6 @@
 package app.cardash.launcher
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
@@ -8,16 +9,19 @@ import android.graphics.Canvas
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.util.LruCache
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.animation.LinearInterpolator
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.atan
 import kotlin.math.cos
 import kotlin.math.floor
@@ -27,31 +31,54 @@ import kotlin.math.sinh
 import kotlin.math.tan
 
 /**
- * Bản đồ nền tối vẽ từ ô ảnh OpenStreetMap, có chấm vị trí hiện tại.
+ * Bản đồ nền tối vẽ từ ô ảnh OpenStreetMap, có mũi tên vị trí hiện tại.
+ * Khi đang bám theo xe, bản đồ trượt mượt và (tuỳ chọn) xoay theo hướng chạy.
  * Kéo để xem chỗ khác, chạm để gọi [onTap]. Ô ảnh được lưu đệm trên máy.
  */
 class MapView(ctx: Context) : View(ctx) {
     var onTap: (() -> Unit)? = null
     var onFollowChanged: ((Boolean) -> Unit)? = null
     var accent = Ui.accent
+    var headingUp = true
+        set(value) {
+            field = value
+            invalidate()
+        }
 
     var following = true
         private set
     private var zoom = 16
     private var centerLat = 21.0285 // Hà Nội, dùng khi chưa có GPS
     private var centerLon = 105.8542
-    private var fixLat = Double.NaN
-    private var fixLon = Double.NaN
+
+    // Vị trí đang vẽ (đã nội suy cho mượt) và hai đầu của đoạn nội suy.
+    private var shownLat = Double.NaN
+    private var shownLon = Double.NaN
+    private var shownBearing = 0f
+    private var hasHeading = false
+    private var fromLat = 0.0
+    private var fromLon = 0.0
+    private var fromBearing = 0f
+    private var toLat = 0.0
+    private var toLon = 0.0
+    private var toBearing = 0f
+
+    private val glide = ValueAnimator.ofFloat(0f, 1f).apply {
+        duration = 950
+        interpolator = LinearInterpolator()
+        addUpdateListener { step(it.animatedFraction) }
+    }
 
     /** Phóng to ô ảnh trên màn mật độ cao để chữ trên bản đồ không quá nhỏ. */
     private val scale = (resources.displayMetrics.density * 1.25f).coerceAtLeast(1f)
     private val tileSize = 256f * scale
-    private val memory = LruCache<String, Bitmap>(72)
+    private val memory = LruCache<String, Bitmap>(96)
     private val pending = HashSet<String>()
     private val failedAt = HashMap<String, Long>()
     private val pool = Executors.newFixedThreadPool(3)
     private val tileDir = File(ctx.cacheDir, "tiles")
     private val rect = RectF()
+    private val decode = BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.RGB_565 }
 
     private val tilePaint = Paint(Paint.FILTER_BITMAP_FLAG).apply {
         // Đảo sáng tối nhưng giữ tông màu, rồi ngả xanh đậm cho hợp nền xe.
@@ -66,14 +93,49 @@ class MapView(ctx: Context) : View(ctx) {
             )
         )
     }
-    private val dot = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeJoin = Paint.Join.ROUND
+        color = 0xFFFFFFFF.toInt()
+    }
+    private val arrow = Path()
 
-    fun setLocation(lat: Double, lon: Double) {
-        fixLat = lat
-        fixLon = lon
+    /** [bearing] là hướng xe tính bằng độ, null nếu chưa biết. */
+    fun setLocation(lat: Double, lon: Double, bearing: Float?) {
+        if (bearing != null) hasHeading = true
+        val jump = shownLat.isNaN() || abs(lat - shownLat) > 0.005 || abs(lon - shownLon) > 0.005
+        if (jump) {
+            glide.cancel()
+            shownLat = lat
+            shownLon = lon
+            if (bearing != null) shownBearing = bearing
+            if (following) {
+                centerLat = lat
+                centerLon = lon
+            }
+            invalidate()
+            return
+        }
+        glide.cancel()
+        fromLat = shownLat
+        fromLon = shownLon
+        fromBearing = shownBearing
+        toLat = lat
+        toLon = lon
+        toBearing = bearing ?: shownBearing
+        glide.start()
+    }
+
+    private fun step(f: Float) {
+        shownLat = fromLat + (toLat - fromLat) * f
+        shownLon = fromLon + (toLon - fromLon) * f
+        // Xoay theo cung ngắn nhất (ví dụ 350° sang 10° là +20°, không phải -340°).
+        val turn = ((toBearing - fromBearing + 540f) % 360f) - 180f
+        shownBearing = fromBearing + turn * f
         if (following) {
-            centerLat = lat
-            centerLon = lon
+            centerLat = shownLat
+            centerLon = shownLon
         }
         invalidate()
     }
@@ -84,9 +146,9 @@ class MapView(ctx: Context) : View(ctx) {
     }
 
     fun recenter() {
-        if (!fixLat.isNaN()) {
-            centerLat = fixLat
-            centerLon = fixLon
+        if (!shownLat.isNaN()) {
+            centerLat = shownLat
+            centerLon = shownLon
         }
         setFollowing(true)
         invalidate()
@@ -96,6 +158,11 @@ class MapView(ctx: Context) : View(ctx) {
         if (following == value) return
         following = value
         onFollowChanged?.invoke(value)
+    }
+
+    override fun onDetachedFromWindow() {
+        glide.cancel()
+        super.onDetachedFromWindow()
     }
 
     // Toạ độ điểm ảnh trên bản đồ thế giới ở mức zoom hiện tại (đã nhân scale).
@@ -108,13 +175,27 @@ class MapView(ctx: Context) : View(ctx) {
 
     override fun onDraw(canvas: Canvas) {
         canvas.drawColor(0xFF10202F.toInt())
-        val left = xOf(centerLon) - width / 2.0
-        val top = yOf(centerLat) - height / 2.0
+        val rotating = following && headingUp && hasHeading
+        // Khi xoay theo hướng xe, đặt xe thấp hơn tâm để thấy nhiều đường phía trước.
+        val ax = width / 2f
+        val ay = if (rotating) height * 0.62f else height / 2f
+        val left = xOf(centerLon) - ax
+        val top = yOf(centerLat) - ay
+
+        canvas.save()
+        if (rotating) canvas.rotate(-shownBearing, ax, ay)
+
+        // Vùng cần phủ ô ảnh: khi xoay phải phủ cả hình tròn bao quanh khung nhìn.
+        val reach = if (rotating) hypot(maxOf(ax, width - ax), maxOf(ay, height - ay)) else 0f
+        val minX = if (rotating) ax - reach else 0f
+        val maxX = if (rotating) ax + reach else width.toFloat()
+        val minY = if (rotating) ay - reach else 0f
+        val maxY = if (rotating) ay + reach else height.toFloat()
         val n = 1 shl zoom
-        val x0 = floor(left / tileSize).toInt()
-        val x1 = floor((left + width) / tileSize).toInt()
-        val y0 = floor(top / tileSize).toInt()
-        val y1 = floor((top + height) / tileSize).toInt()
+        val x0 = floor((left + minX) / tileSize).toInt()
+        val x1 = floor((left + maxX) / tileSize).toInt()
+        val y0 = floor((top + minY) / tileSize).toInt()
+        val y1 = floor((top + maxY) / tileSize).toInt()
         for (ty in y0..y1) {
             if (ty < 0 || ty >= n) continue
             for (tx in x0..x1) {
@@ -127,21 +208,40 @@ class MapView(ctx: Context) : View(ctx) {
                 }
                 val l = (tx * tileSize - left).toFloat()
                 val t = (ty * tileSize - top).toFloat()
-                rect.set(l, t, l + tileSize, t + tileSize)
+                // Chờm 1px để không lộ khe giữa các ô khi xoay.
+                rect.set(l, t, l + tileSize + 1f, t + tileSize + 1f)
                 canvas.drawBitmap(bmp, null, rect, tilePaint)
             }
         }
-        if (!fixLat.isNaN()) {
-            val px = (xOf(fixLon) - left).toFloat()
-            val py = (yOf(fixLat) - top).toFloat()
-            val r = resources.displayMetrics.density * 9f
-            dot.color = (accent and 0x00FFFFFF) or 0x40000000
-            canvas.drawCircle(px, py, r * 2.4f, dot)
-            dot.color = 0xFFFFFFFF.toInt()
-            canvas.drawCircle(px, py, r * 1.25f, dot)
-            dot.color = accent
-            canvas.drawCircle(px, py, r, dot)
+
+        if (!shownLat.isNaN()) {
+            val px = (xOf(shownLon) - left).toFloat()
+            val py = (yOf(shownLat) - top).toFloat()
+            val r = resources.displayMetrics.density * 10f
+            fill.color = (accent and 0x00FFFFFF) or 0x40000000
+            canvas.drawCircle(px, py, r * 2.6f, fill)
+            fill.color = accent
+            if (hasHeading) {
+                // Mũi tên chỉ hướng xe; trong hệ bản đồ, 0° là hướng Bắc (lên trên).
+                canvas.translate(px, py)
+                canvas.rotate(shownBearing)
+                arrow.rewind()
+                arrow.moveTo(0f, -r * 1.6f)
+                arrow.lineTo(r * 1.15f, r * 1.25f)
+                arrow.lineTo(0f, r * 0.6f)
+                arrow.lineTo(-r * 1.15f, r * 1.25f)
+                arrow.close()
+                outline.strokeWidth = r * 0.3f
+                canvas.drawPath(arrow, fill)
+                canvas.drawPath(arrow, outline)
+            } else {
+                fill.color = 0xFFFFFFFF.toInt()
+                canvas.drawCircle(px, py, r * 1.25f, fill)
+                fill.color = accent
+                canvas.drawCircle(px, py, r, fill)
+            }
         }
+        canvas.restore()
     }
 
     private fun request(key: String) {
@@ -171,7 +271,7 @@ class MapView(ctx: Context) : View(ctx) {
     private fun load(key: String): Bitmap? {
         val file = File(tileDir, "$key.png")
         if (file.exists()) {
-            BitmapFactory.decodeFile(file.path)?.let { return it }
+            BitmapFactory.decodeFile(file.path, decode)?.let { return it }
             file.delete()
         }
         val conn = URL("https://tile.openstreetmap.org/$key.png").openConnection() as HttpURLConnection
@@ -181,7 +281,7 @@ class MapView(ctx: Context) : View(ctx) {
         try {
             if (conn.responseCode != 200) return null
             val bytes = conn.inputStream.use { it.readBytes() }
-            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decode) ?: return null
             file.parentFile?.mkdirs()
             file.writeBytes(bytes)
             return bmp
@@ -209,14 +309,17 @@ class MapView(ctx: Context) : View(ctx) {
                 parent?.requestDisallowInterceptTouchEvent(true)
             }
             MotionEvent.ACTION_MOVE -> {
-                if (!dragging && hypot(event.x - downX, event.y - downY) > slop) dragging = true
+                if (!dragging && hypot(event.x - downX, event.y - downY) > slop) {
+                    dragging = true
+                    // Kéo tay thì thôi bám xe; bản đồ trở về hướng Bắc ở trên.
+                    setFollowing(false)
+                }
                 if (dragging) {
                     val size = worldSize()
                     val wx = xOf(centerLon) - (event.x - lastX)
                     val wy = (yOf(centerLat) - (event.y - lastY)).coerceIn(0.0, size)
                     centerLon = ((wx / size * 360.0 - 180.0) + 540.0) % 360.0 - 180.0
                     centerLat = Math.toDegrees(atan(sinh(PI * (1.0 - 2.0 * wy / size))))
-                    setFollowing(false)
                     invalidate()
                 }
                 lastX = event.x

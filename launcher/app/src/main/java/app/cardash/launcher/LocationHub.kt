@@ -26,6 +26,10 @@ class LocationHub(private val ctx: Context, private val onUpdate: () -> Unit) {
     var movingMs = 0L
         private set
 
+    /** Hướng xe (độ, tính từ hướng Bắc); null khi đứng yên hoặc chưa biết. */
+    val bearing: Float?
+        get() = last?.takeIf { it.hasBearing() && speedKmh >= 5f }?.bearing
+
     private val listener = object : LocationListener {
         override fun onLocationChanged(location: Location) = accept(location)
 
