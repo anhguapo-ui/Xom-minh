@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -31,3 +31,15 @@ jobs:
         with:
           name: CarDash-apk
           path: launcher/CarDash-${{ github.run_number }}.apk
+      # Bản mới nhất luôn có link tải trực tiếp cố định:
+      # https://github.com/<owner>/<repo>/releases/download/cardash-latest/CarDash.apk
+      - name: Publish direct download link
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp CarDash-${{ github.run_number }}.apk CarDash.apk
+          gh release view cardash-latest >/dev/null 2>&1 || \
+            gh release create cardash-latest --prerelease --target "$GITHUB_SHA" \
+              --title "CarDash" --notes "Ban build moi nhat cua launcher CarDash."
+          gh release upload cardash-latest CarDash.apk --clobber
+          gh release edit cardash-latest --title "CarDash ban ${{ github.run_number }}"

@@ -25,6 +25,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.webkit.CookieManager
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.BaseAdapter
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -61,6 +66,16 @@ class MainActivity : Activity() {
     private var built = false
     private var areaW = 0
     private var areaH = 0
+
+    // YouTube xem ngay trong khung bản đồ. WebView được giữ lại qua các lần dựng lại giao diện.
+    private var web: WebView? = null
+    private var videoOn = false
+    private var fullscreenView: View? = null
+    private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
+    private lateinit var frame: FrameLayout
+    private lateinit var mapLayer: View
+    private lateinit var videoLayer: View
+    private lateinit var webHolder: FrameLayout
 
     private lateinit var background: ImageView
     private lateinit var host: FrameLayout
@@ -110,7 +125,7 @@ class MainActivity : Activity() {
 
         // Nền và khung chứa; giao diện chỉ được dựng khi đã biết vùng thực sự được cấp
         // (màn xe thường bị thanh điều khiển của hãng chiếm mất một phần).
-        val frame = FrameLayout(this)
+        frame = FrameLayout(this)
         background = ImageView(this)
         frame.addView(background, FrameLayout.LayoutParams(-1, -1))
         applyWallpaper()
@@ -142,6 +157,11 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         unregisterReceiver(packageReceiver)
+        web?.let {
+            (it.parent as? ViewGroup)?.removeView(it)
+            it.destroy()
+        }
+        web = null
         super.onDestroy()
     }
 
@@ -153,6 +173,7 @@ class MainActivity : Activity() {
             addAction(Intent.ACTION_TIMEZONE_CHANGED)
         })
         updateClock()
+        web?.onResume()
         media.start()
         location.start()
         updateLocation()
@@ -161,6 +182,9 @@ class MainActivity : Activity() {
 
     override fun onStop() {
         unregisterReceiver(timeReceiver)
+        // Rời launcher (mở app khác) thì tạm dừng video.
+        exitFullscreen()
+        web?.onPause()
         media.stop()
         location.stop()
         super.onStop()
@@ -189,7 +213,12 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         // Launcher không được thoát; nút Back chỉ đưa về trang tổng quan.
-        if (built && showGrid) showPage(false)
+        val w = web
+        when {
+            fullscreenView != null -> exitFullscreen()
+            built && showGrid -> showPage(false)
+            built && videoOn && w != null && w.canGoBack() -> w.goBack()
+        }
     }
 
     override fun onRequestPermissionsResult(code: Int, permissions: Array<out String>, results: IntArray) {
@@ -353,8 +382,10 @@ class MainActivity : Activity() {
     }
 
     private fun buildMapCard(): View {
-        val card = FrameLayout(this).apply { background = Ui.glass(radius, hairline) }
-        Ui.clipRound(card, radius)
+        // Khung ngoài chứa hai lớp chồng nhau: bản đồ và YouTube; mỗi lúc chỉ hiện một lớp.
+        val outer = FrameLayout(this).apply { background = Ui.glass(radius, hairline) }
+        Ui.clipRound(outer, radius)
+        val card = FrameLayout(this)
         val m = u(1.8f)
         val btn = u(8.5f)
 
@@ -381,7 +412,16 @@ class MainActivity : Activity() {
                 LinearLayout.LayoutParams(-2, -2).apply { leftMargin = u(1f) }
             )
         }
-        card.addView(find, FrameLayout.LayoutParams(-2, btn, Gravity.TOP or Gravity.START).apply {
+        val tube = iconButton(Glyph.PLAY, btn).apply {
+            setImageDrawable(Glyph(Glyph.PLAY, 0xFFFFFFFF.toInt()))
+            background = Ui.pressable(0xF0E53935.toInt(), btn / 2f)
+            contentDescription = "Xem YouTube"
+            setOnClickListener { showVideo(true) }
+        }
+        val topRow = LinearLayout(this)
+        topRow.addView(find, LinearLayout.LayoutParams(-2, btn))
+        topRow.addView(tube, LinearLayout.LayoutParams(btn, btn).apply { leftMargin = u(1.2f) })
+        card.addView(topRow, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply {
             setMargins(m, m, m, m)
         })
 
@@ -459,7 +499,104 @@ class MainActivity : Activity() {
                 bottomMargin = u(0.6f)
             }
         )
-        return card
+        mapLayer = card
+        videoLayer = buildVideoLayer()
+        outer.addView(card, FrameLayout.LayoutParams(-1, -1))
+        outer.addView(videoLayer, FrameLayout.LayoutParams(-1, -1))
+        showVideo(videoOn)
+        return outer
+    }
+
+    /** Lớp YouTube: dải nút hẹp bên trái, trang YouTube bên phải. */
+    private fun buildVideoLayer(): View {
+        val layer = LinearLayout(this).apply { setBackgroundColor(0xFF000000.toInt()) }
+        val btn = u(8.5f)
+        val strip = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setBackgroundColor(0xFF12151B.toInt())
+            setPadding(u(0.6f), u(1.2f), u(0.6f), u(1.2f))
+        }
+        strip.addView(iconButton(Glyph.CLOSE, btn).apply {
+            contentDescription = "Về bản đồ"
+            setOnClickListener { showVideo(false) }
+        }, LinearLayout.LayoutParams(btn, btn))
+        strip.addView(iconButton(Glyph.BACK, btn).apply {
+            contentDescription = "Trang trước"
+            setOnClickListener { web?.let { if (it.canGoBack()) it.goBack() } }
+        }, LinearLayout.LayoutParams(btn, btn).apply { topMargin = u(1f) })
+        strip.addView(iconButton(Glyph.PLAY, btn).apply {
+            setImageDrawable(Glyph(Glyph.PLAY, 0xFFE53935.toInt()))
+            contentDescription = "Trang chủ YouTube"
+            setOnClickListener { web?.loadUrl(YOUTUBE_HOME) }
+        }, LinearLayout.LayoutParams(btn, btn).apply { topMargin = u(1f) })
+        layer.addView(strip, LinearLayout.LayoutParams(-2, -1))
+
+        webHolder = FrameLayout(this)
+        web?.let {
+            (it.parent as? ViewGroup)?.removeView(it)
+            webHolder.addView(it, FrameLayout.LayoutParams(-1, -1))
+        }
+        layer.addView(webHolder, LinearLayout.LayoutParams(0, -1, 1f))
+        return layer
+    }
+
+    /** Chuyển khung trên cùng giữa bản đồ và YouTube. Video vẫn chạy tiếp khi về bản đồ. */
+    private fun showVideo(on: Boolean) {
+        videoOn = on
+        if (on && web == null) {
+            try {
+                val created = createWeb()
+                web = created
+                webHolder.addView(created, FrameLayout.LayoutParams(-1, -1))
+                created.loadUrl(YOUTUBE_HOME)
+            } catch (e: Exception) {
+                // Máy thiếu thành phần WebView của hệ thống.
+                videoOn = false
+                toast("Máy này không mở được YouTube trong launcher")
+            }
+        }
+        mapLayer.visibility = if (videoOn) View.GONE else View.VISIBLE
+        videoLayer.visibility = if (videoOn) View.VISIBLE else View.GONE
+    }
+
+    @android.annotation.SuppressLint("SetJavaScriptEnabled")
+    private fun createWeb(): WebView = WebView(this).apply {
+        setBackgroundColor(0xFF000000.toInt())
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.mediaPlaybackRequiresUserGesture = false
+        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+        webViewClient = object : WebViewClient() {
+            // Chỉ đi tiếp các trang web thường; chặn liên kết đòi mở app khác.
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                val scheme = request.url.scheme
+                return scheme != "http" && scheme != "https"
+            }
+        }
+        webChromeClient = object : WebChromeClient() {
+            // Nút toàn màn hình của trình phát: phủ video lên toàn bộ vùng launcher.
+            override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+                if (fullscreenView != null) {
+                    callback.onCustomViewHidden()
+                    return
+                }
+                view.setBackgroundColor(0xFF000000.toInt())
+                fullscreenView = view
+                fullscreenCallback = callback
+                frame.addView(view, FrameLayout.LayoutParams(-1, -1))
+            }
+
+            override fun onHideCustomView() = exitFullscreen()
+        }
+    }
+
+    private fun exitFullscreen() {
+        val view = fullscreenView ?: return
+        frame.removeView(view)
+        fullscreenView = null
+        fullscreenCallback?.onCustomViewHidden()
+        fullscreenCallback = null
     }
 
     /** Thẻ "Hôm nay": thời tiết ở trên, thứ ngày và lịch âm ở dưới. */
@@ -1078,5 +1215,6 @@ class MainActivity : Activity() {
         private const val REQ_HOME = 1
         private const val REQ_LOCATION = 2
         private const val REQ_WALLPAPER = 3
+        private const val YOUTUBE_HOME = "https://m.youtube.com/"
     }
 }

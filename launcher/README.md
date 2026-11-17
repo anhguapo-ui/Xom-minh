@@ -5,12 +5,13 @@ Màn hình chính kiểu bảng điều khiển xe, ưu tiên màn dọc: bản 
 Bản đồ dùng ô ảnh OpenStreetMap, thời tiết dùng Open-Meteo; cả hai miễn phí, không cần khoá, cần có mạng.
 
 ## Lấy file APK
-Mỗi lần đẩy code vào thư mục `launcher/`, GitHub Actions tự build. Vào tab **Actions** → **Build CarDash APK** → lần chạy mới nhất → tải mục **CarDash-apk** (file zip chứa APK).
+Link tải trực tiếp bản mới nhất: https://github.com/anhguapo-ui/Xom-minh/releases/download/cardash-latest/CarDash.apk
 
-Mọi bản build ký cùng một khoá (`keystore/cardash.jks`) nên cài bản mới đè lên bản cũ được.
+Mỗi lần đẩy code vào thư mục `launcher/`, GitHub Actions tự build và cập nhật file ở link trên. Mọi bản build ký cùng một khoá (`keystore/cardash.jks`) nên cài bản mới đè lên bản cũ được.
 
 ## Cách dùng
 - **Bản đồ**: kéo để xem chỗ khác, nút +/− để phóng, chạm để mở Google Maps. Dòng chuyến đi (phút · km) chỉ tính khi CarDash đang hiện; nhấn giữ để đặt lại.
+- **YouTube**: nút đỏ cạnh ô tìm kiếm đổi khung bản đồ thành YouTube; nút X ở dải bên trái để về bản đồ (video vẫn chạy tiếp), rời launcher thì video tạm dừng.
 - **Nút lưới ở đầu dock**: chuyển giữa trang tổng quan và lưới ứng dụng; nhấn giữ để mở Cài đặt.
 - **Nhấn giữ một app trong lưới**: ghim vào dock, ẩn, xem thông tin, gỡ cài đặt.
 - **Ô có dấu +**: chạm để chọn app; nhấn giữ ô đã có app để đổi hoặc bỏ.
