@@ -318,6 +318,9 @@ class MainActivity : Activity() {
             val pose = CubeView(this).apply {
                 colors = this@MainActivity.colors
                 highlightFace = face
+                markerFace = markerFor(face)
+                markerColor = Palette.color(this@MainActivity.colors[Faces.F * 9 + 4])
+                markerText = "PHÍA " + centerName(Faces.F)
                 yaw = POSES[faceStep].first
                 pitch = POSES[faceStep].second
                 onSticker = { i -> paintCell(i) }
@@ -468,7 +471,14 @@ class MainActivity : Activity() {
         suspects = suspects.filter { it / 9 != face }.toSet()
     }
 
+    /** Khi tô mặt trên/dưới, đánh dấu cạnh giáp mặt trước để bé lật khối đúng hướng. */
+    private fun markerFor(face: Int) = if (face == Faces.U || face == Faces.D) Faces.F else -1
+
     private fun paintCell(index: Int) {
+        if (index / 9 != FACE_ORDER[faceStep]) {
+            Toast.makeText(this, "Con đang tô mặt có viền hồng nhé. Bấm ◀ hoặc Mặt tiếp ▶ để đổi mặt.", Toast.LENGTH_SHORT).show()
+            return
+        }
         if (index % 9 == 4) {
             Toast.makeText(this, "Ô giữa đã có sẵn màu rồi, con tô các ô xung quanh nhé", Toast.LENGTH_SHORT).show()
             return
@@ -508,6 +518,7 @@ class MainActivity : Activity() {
         val face = FACE_ORDER[k]
         poseCube?.let {
             it.highlightFace = face
+            it.markerFace = markerFor(face)
             it.yaw = POSES[old].first
             it.pitch = POSES[old].second
             it.animateView(POSES[k].first, POSES[k].second)
@@ -558,11 +569,22 @@ class MainActivity : Activity() {
             inputNote = result.message
             cameraOn = false
             show(Screen.INPUT)
-            AlertDialog.Builder(this)
+            val dialog = AlertDialog.Builder(this)
                 .setTitle("Ơ, hình như chưa đúng")
                 .setMessage(result.message + if (suspects.isNotEmpty()) "\n\nCác ô cần xem lại có viền đỏ." else "")
-                .setPositiveButton("Để con xem lại", null)
-                .show()
+            val fix = result.fix
+            if (fix != null) {
+                dialog.setPositiveButton("Sửa giúp con") { _, _ ->
+                    fix.copyInto(colors)
+                    suspects = emptySet()
+                    inputNote = null
+                    startSolve()
+                }
+                dialog.setNegativeButton("Để con tự sửa", null)
+            } else {
+                dialog.setPositiveButton("Để con xem lại", null)
+            }
+            dialog.show()
             return
         }
         if (screen == Screen.INPUT) sampleScramble = null

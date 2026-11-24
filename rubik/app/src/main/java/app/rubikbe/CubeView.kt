@@ -56,6 +56,15 @@ class CubeView(ctx: Context) : View(ctx) {
             invalidate()
         }
 
+    /** Mặt giáp với mặt đang tô cần đánh dấu (ví dụ mặt trước khi tô mặt trên), -1 nếu không. */
+    var markerFace = -1
+        set(value) {
+            field = value
+            invalidate()
+        }
+    var markerColor = Color.GREEN
+    var markerText = ""
+
     /** Các ô (0..53) nghi bị tô nhầm: vẽ viền đỏ. */
     var suspects: Set<Int> = emptySet()
         set(value) {
@@ -290,7 +299,10 @@ class CubeView(ctx: Context) : View(ctx) {
             drawCubie(canvas, c, if (c.moving) ak else -1, angle, gk >= 0 && coord * gs == 1)
         }
         if (pendingMove >= 0 && animMove < 0) drawArrow(canvas, pendingMove)
-        if (highlightFace >= 0 && faceFacing(highlightFace, yaw, pitch) > 0.05f) drawOutline(canvas, highlightFace)
+        if (highlightFace >= 0 && faceFacing(highlightFace, yaw, pitch) > 0.05f) {
+            drawOutline(canvas, highlightFace)
+            if (markerFace >= 0) drawMarker(canvas, highlightFace, markerFace)
+        }
     }
 
     private fun drawCubie(canvas: Canvas, c: Cubie, ak: Int, angle: Float, glow: Boolean) {
@@ -423,6 +435,39 @@ class CubeView(ctx: Context) : View(ctx) {
             label.setShadowLayer(scale * 0.08f, 0f, 0f, 0xFF1B1D2A.toInt())
             canvas.drawText("×2", mx, my + label.textSize * 0.35f, label)
         }
+    }
+
+    /** Thanh màu và chữ nằm sát cạnh chung của mặt [face] và mặt [side]. */
+    private fun drawMarker(canvas: Canvas, face: Int, side: Int) {
+        val k = Geometry.axisIndex(face)
+        val j = Geometry.axisIndex(side)
+        val w = 3 - k - j
+        val ends = FloatArray(4)
+        for ((n, t) in floatArrayOf(-1.3f, 1.3f).withIndex()) {
+            tmp[0] = 0f; tmp[1] = 0f; tmp[2] = 0f
+            tmp[k] = Geometry.axis[face][k] * 1.5f
+            tmp[j] = Geometry.axis[side][j] * 1.85f
+            tmp[w] = t
+            toView(tmp)
+            project(tmp, ends, n * 2)
+        }
+        arrow.color = 0xCC1B1D2A.toInt()
+        arrow.strokeWidth = scale * 0.32f
+        canvas.drawLine(ends[0], ends[1], ends[2], ends[3], arrow)
+        arrow.color = markerColor
+        arrow.strokeWidth = scale * 0.22f
+        canvas.drawLine(ends[0], ends[1], ends[2], ends[3], arrow)
+        // Chữ đặt xa hơn một chút về phía mặt [side].
+        tmp[0] = 0f; tmp[1] = 0f; tmp[2] = 0f
+        tmp[k] = Geometry.axis[face][k] * 1.5f
+        tmp[j] = Geometry.axis[side][j] * 2.45f
+        toView(tmp)
+        project(tmp, pts, 0)
+        label.textSize = scale * 0.36f
+        label.color = 0xFF1B1D2A.toInt()
+        label.clearShadowLayer()
+        label.setShadowLayer(scale * 0.1f, 0f, 0f, Color.WHITE)
+        canvas.drawText(markerText, pts[0], pts[1] + label.textSize * 0.35f, label)
     }
 
     private fun drawOutline(canvas: Canvas, face: Int) {

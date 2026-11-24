@@ -73,6 +73,8 @@ class ScreenshotTest {
         call(activity, "pickBrush", 2)
         for (i in intArrayOf(20, 23, 9)) call(activity, "paintCell", i)
         shot(activity, "$prefix-2-input-painting")
+        call(activity, "goFace", 4)
+        shot(activity, "$prefix-2b-input-top")
         call(activity, "sample")
         waitSolved(activity)
         shot(activity, "$prefix-4-solve-fast")
