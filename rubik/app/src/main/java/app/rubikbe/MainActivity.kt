@@ -942,7 +942,7 @@ class MainActivity : Activity() {
 
         /** Góc nhìn khối minh hoạ cho từng mặt (yaw, pitch), hơi chếch để thấy mặt bên cạnh. */
         private val POSES = arrayOf(
-            -20f to 18f, -110f to 18f, -200f to 18f, -290f to 18f, -380f to 70f, -380f to -70f
+            -20f to 18f, -110f to 18f, -200f to 18f, -290f to 18f, -360f to 62f, -360f to -62f
         )
     }
 }
