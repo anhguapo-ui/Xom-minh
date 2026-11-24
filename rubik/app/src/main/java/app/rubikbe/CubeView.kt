@@ -308,7 +308,10 @@ class CubeView(ctx: Context) : View(ctx) {
             1 -> -220.0
             else -> 110.0
         }
-        val start = 140.0
+        // Đặt mũi tên ở mép gần bé nhất: cột trước cho mặt trên/dưới/trái/phải, hàng trên cho mặt trước/sau.
+        val pref = if (face == Faces.F || face == Faces.B) intArrayOf(0, 1, 0) else intArrayOf(0, 0, 1)
+        val middle = Math.toDegrees(atan2(pref[t2].toDouble(), pref[t1].toDouble()))
+        val start = middle - sweep / 2
         val steps = 24
         val screen = FloatArray((steps + 1) * 2)
         for (i in 0..steps) {

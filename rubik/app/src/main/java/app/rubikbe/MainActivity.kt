@@ -305,7 +305,9 @@ class MainActivity : Activity() {
                 }
             }
             swatches.add(id to v)
-            paletteRow.addView(v, LinearLayout.LayoutParams(dp(44), dp(44)).apply { setMargins(dp(4), 0, dp(4), 0) })
+            val size = if (landscape) dp(38) else dp(44)
+            val gap = if (landscape) dp(3) else dp(4)
+            paletteRow.addView(v, LinearLayout.LayoutParams(size, size).apply { setMargins(gap, 0, gap, 0) })
         }
         refreshSwatches()
         val actions = LinearLayout(this).apply { setPadding(dp(14), dp(4), dp(14), dp(14)) }
