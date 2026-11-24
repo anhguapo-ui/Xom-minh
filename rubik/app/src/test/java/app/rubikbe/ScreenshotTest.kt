@@ -25,6 +25,7 @@ class ScreenshotTest {
 
     private fun shot(activity: MainActivity, name: String) {
         idle()
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(800))
         val root = activity.window.decorView
         val bmp = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
         root.draw(Canvas(bmp))
@@ -65,13 +66,18 @@ class ScreenshotTest {
     private fun run(prefix: String) {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         shot(activity, "$prefix-1-home")
+        clickText(activity, "Nhập khối")
+        shot(activity, "$prefix-2-input-empty")
         call(activity, "sample")
         waitSolved(activity)
-        shot(activity, "$prefix-3-solve-fast")
+        shot(activity, "$prefix-4-solve-fast")
         clickText(activity, "Học giải")
-        shot(activity, "$prefix-4-solve-learn")
-        clickText(activity, "‹ Về")
-        shot(activity, "$prefix-2-paint")
+        shot(activity, "$prefix-5-solve-learn")
+        // Tô nhầm một ô rồi bấm giải: app phải khoanh đỏ ô đó.
+        val colors = field(activity, "colors") as IntArray
+        colors[19] = (colors[19] + 1) % 6
+        call(activity, "startSolve")
+        shot(activity, "$prefix-3-input-error")
     }
 
     @Test

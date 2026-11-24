@@ -33,89 +33,110 @@ object Palette {
     fun ink(id: Int): Int = if (id == 0 || id == 1 || id == 3 || id < 0) 0xFF2B2D42.toInt() else Color.WHITE
 }
 
-/** Hình trải phẳng 6 mặt để bé chạm tô màu. */
-class NetView(ctx: Context) : View(ctx) {
-    var colors: IntArray = IntArray(54) { -1 }
+/**
+ * Một mặt 3×3 ô thật to để bé chạm tô màu. Bốn thanh màu quanh lưới cho biết
+ * mặt nào nằm phía trên, phải, dưới, trái — để bé tự kiểm tra mình cầm khối đúng chưa.
+ */
+class FaceGrid(ctx: Context) : View(ctx) {
+    var cells: IntArray = IntArray(9) { -1 }
         set(value) {
             field = value
             invalidate()
         }
-    var highlight = -1
+
+    /** Màu ô giữa của 4 mặt bên cạnh: trên, phải, dưới, trái. */
+    var neighbors: IntArray = IntArray(4) { -1 }
         set(value) {
             field = value
             invalidate()
         }
-    var showLabels = true
+
+    /** Ô (0..8) nghi bị tô nhầm, vẽ viền đỏ. */
+    var suspects: Set<Int> = emptySet()
+        set(value) {
+            field = value
+            invalidate()
+        }
     var onCell: ((Int) -> Unit)? = null
 
-    private val place = arrayOf(
-        intArrayOf(1, 0), intArrayOf(2, 1), intArrayOf(1, 1), intArrayOf(1, 2), intArrayOf(0, 1), intArrayOf(3, 1)
-    )
-    private val labels = arrayOf("TRÊN", "PHẢI", "TRƯỚC", "DƯỚI", "TRÁI", "SAU")
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textAlign = Paint.Align.CENTER
-        isFakeBoldText = true
-    }
     private val rect = RectF()
-    private var cell = 0f
-    private var gap = 0f
-    private var ox = 0f
-    private var oy = 0f
     private var lastPainted = -1
 
-    private fun layout() {
-        cell = min(width / 12.9f, height / 9.6f)
-        gap = cell * 0.3f
-        val totalW = 12 * cell + 3 * gap
-        val totalH = 9 * cell + 2 * gap
-        ox = (width - totalW) / 2f
-        oy = (height - totalH) / 2f
-    }
-
-    private fun cellRect(index: Int, out: RectF) {
-        val face = index / 9
-        val r = (index % 9) / 3
-        val c = index % 3
-        val fx = ox + place[face][0] * (3 * cell + gap)
-        val fy = oy + place[face][1] * (3 * cell + gap)
-        val inset = cell * 0.06f
-        out.set(fx + c * cell + inset, fy + r * cell + inset, fx + (c + 1) * cell - inset, fy + (r + 1) * cell - inset)
+    private fun geometry(): FloatArray {
+        val size = min(width, height).toFloat()
+        val bar = size * 0.075f
+        val gap = size * 0.03f
+        val grid = size - 2 * (bar + gap)
+        val ox = (width - size) / 2f + bar + gap
+        val oy = (height - size) / 2f + bar + gap
+        return floatArrayOf(size, bar, gap, grid, ox, oy)
     }
 
     override fun onDraw(canvas: Canvas) {
-        layout()
-        val radius = cell * 0.2f
-        for (i in 0 until 54) {
-            cellRect(i, rect)
-            paint.color = Palette.color(colors[i])
-            canvas.drawRoundRect(rect, radius, radius, paint)
-            stroke.color = 0x33000000
-            stroke.strokeWidth = cell * 0.04f
-            canvas.drawRoundRect(rect, radius, radius, stroke)
-            if (i % 9 == 4 && showLabels) {
-                text.color = Palette.ink(colors[i])
-                text.textSize = cell * 0.2f
-                canvas.drawText(labels[i / 9], rect.centerX(), rect.centerY() + text.textSize * 0.35f, text)
-            }
+        val g = geometry()
+        val size = g[0]
+        val bar = g[1]
+        val gap = g[2]
+        val grid = g[3]
+        val ox = g[4]
+        val oy = g[5]
+        val left = (width - size) / 2f
+        val top = (height - size) / 2f
+        val r = bar / 2f
+        // Thanh màu mặt bên cạnh.
+        val sides = arrayOf(
+            RectF(ox + grid * 0.15f, top, ox + grid * 0.85f, top + bar),
+            RectF(left + size - bar, oy + grid * 0.15f, left + size, oy + grid * 0.85f),
+            RectF(ox + grid * 0.15f, top + size - bar, ox + grid * 0.85f, top + size),
+            RectF(left, oy + grid * 0.15f, left + bar, oy + grid * 0.85f)
+        )
+        for (k in 0 until 4) {
+            paint.color = Palette.color(neighbors[k])
+            canvas.drawRoundRect(sides[k], r, r, paint)
+            stroke.color = 0x40000000
+            stroke.strokeWidth = bar * 0.1f
+            canvas.drawRoundRect(sides[k], r, r, stroke)
         }
-        if (highlight >= 0) {
-            val fx = ox + place[highlight][0] * (3 * cell + gap)
-            val fy = oy + place[highlight][1] * (3 * cell + gap)
-            stroke.color = CubeView.ACCENT
-            stroke.strokeWidth = cell * 0.14f
-            rect.set(fx - gap * 0.3f, fy - gap * 0.3f, fx + 3 * cell + gap * 0.3f, fy + 3 * cell + gap * 0.3f)
-            canvas.drawRoundRect(rect, radius * 1.5f, radius * 1.5f, stroke)
+        // Nền đen như thân khối thật.
+        rect.set(ox - gap * 0.4f, oy - gap * 0.4f, ox + grid + gap * 0.4f, oy + grid + gap * 0.4f)
+        paint.color = 0xFF1B1D2A.toInt()
+        canvas.drawRoundRect(rect, grid * 0.06f, grid * 0.06f, paint)
+        val cell = grid / 3f
+        val inset = cell * 0.06f
+        val radius = cell * 0.16f
+        for (i in 0 until 9) {
+            val x = ox + (i % 3) * cell
+            val y = oy + (i / 3) * cell
+            rect.set(x + inset, y + inset, x + cell - inset, y + cell - inset)
+            paint.color = Palette.color(cells[i])
+            canvas.drawRoundRect(rect, radius, radius, paint)
+            if (cells[i] < 0) {
+                paint.color = 0x66FFFFFF
+                paint.textAlign = Paint.Align.CENTER
+                paint.textSize = cell * 0.45f
+                canvas.drawText("?", rect.centerX(), rect.centerY() + paint.textSize * 0.35f, paint)
+            }
+            if (i == 4) {
+                paint.color = 0x55000000
+                canvas.drawCircle(rect.centerX(), rect.centerY(), cell * 0.07f, paint)
+            }
+            if (i in suspects) {
+                stroke.color = 0xFFE11D48.toInt()
+                stroke.strokeWidth = cell * 0.1f
+                canvas.drawRoundRect(rect, radius, radius, stroke)
+            }
         }
     }
 
     private fun hit(x: Float, y: Float): Int {
-        for (i in 0 until 54) {
-            cellRect(i, rect)
-            if (rect.contains(x, y)) return i
-        }
-        return -1
+        val g = geometry()
+        val grid = g[3]
+        val cx = x - g[4]
+        val cy = y - g[5]
+        if (cx < 0 || cy < 0 || cx >= grid || cy >= grid) return -1
+        return (cy / (grid / 3f)).toInt() * 3 + (cx / (grid / 3f)).toInt()
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -128,10 +149,9 @@ class NetView(ctx: Context) : View(ctx) {
                     parent?.requestDisallowInterceptTouchEvent(true)
                 }
                 val i = hit(event.x, event.y)
-                if (i >= 0 && i != lastPainted) {
+                if (i in 0..8 && i != lastPainted) {
                     lastPainted = i
                     listener(i)
-                    invalidate()
                 }
             }
         }
@@ -160,7 +180,7 @@ class AspectFrame(ctx: Context) : FrameLayout(ctx) {
     }
 }
 
-/** Lưới 3×3 vẽ chồng lên hình camera, kèm chấm màu máy đang thấy ở mỗi ô. */
+/** Lưới 3×3 vẽ chồng lên hình camera, kèm chấm màu máy đang đoán ở mỗi ô. */
 class GridOverlay(ctx: Context) : View(ctx) {
     var live: IntArray? = null
         set(value) {
@@ -193,14 +213,14 @@ class GridOverlay(ctx: Context) : View(ctx) {
             canvas.drawLine(x0 + i * cell, y0, x0 + i * cell, y0 + side, line)
             canvas.drawLine(x0, y0 + i * cell, x0 + side, y0 + i * cell, line)
         }
-        val colors = live ?: return
+        val ids = live ?: return
         ring.strokeWidth = cell * 0.04f
         for (i in 0 until 9) {
             val cx = x0 + (i % 3 + 0.5f) * cell
             val cy = y0 + (i / 3 + 0.5f) * cell
-            dot.color = Palette.color(ColorMath.guess(colors[i]))
-            canvas.drawCircle(cx, cy, cell * 0.13f, dot)
-            canvas.drawCircle(cx, cy, cell * 0.13f, ring)
+            dot.color = Palette.color(ids[i])
+            canvas.drawCircle(cx, cy, cell * 0.14f, dot)
+            canvas.drawCircle(cx, cy, cell * 0.14f, ring)
         }
     }
 }

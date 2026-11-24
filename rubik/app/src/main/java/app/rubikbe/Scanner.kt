@@ -226,51 +226,18 @@ object ColorMath {
     }
 
     /**
-     * Gán màu cho 54 ô sau khi quét đủ 6 mặt. [samples][k] là 9 màu của mặt [order][k].
-     * Lấy ô giữa mỗi mặt làm mẫu, rồi chia các ô còn lại sao cho mỗi màu đúng 9 ô.
+     * Đoán màu 9 ô của một mặt. Ô giữa biết trước là [centerColor] nên lấy nó làm mẫu thật
+     * cho màu đó; [learned] giữ mẫu của các màu đã gặp ở những mặt chụp trước.
      */
-    fun classify(samples: Array<IntArray>, order: IntArray): IntArray {
-        val labs = Array(54) { FloatArray(3) }
-        for (k in 0 until 6) for (i in 0 until 9) labs[order[k] * 9 + i] = lab(samples[k][i])
-        val centerLab = Array(6) { labs[it * 9 + 4] }
-
-        // Màu hiển thị cho từng mặt: thử mọi cách ghép 6 ô giữa với 6 màu chuẩn.
-        val refLab = Array(6) { lab(reference[it]) }
-        val faceColor = IntArray(6)
-        var bestCost = Float.MAX_VALUE
-        val perm = IntArray(6) { it }
-        fun tryPerm(k: Int) {
-            if (k == 6) {
-                var cost = 0f
-                for (f in 0 until 6) cost += dist(centerLab[f], refLab[perm[f]])
-                if (cost < bestCost) {
-                    bestCost = cost
-                    perm.copyInto(faceColor)
-                }
-                return
-            }
-            for (i in k until 6) {
-                var t = perm[k]; perm[k] = perm[i]; perm[i] = t
-                tryPerm(k + 1)
-                t = perm[k]; perm[k] = perm[i]; perm[i] = t
+    fun classifyFace(samples: IntArray, centerColor: Int, learned: Array<FloatArray?>): IntArray {
+        val refs = Array(6) { learned[it] ?: lab(reference[it]) }
+        refs[centerColor] = lab(samples[4])
+        return IntArray(9) { i ->
+            if (i == 4) centerColor
+            else {
+                val l = lab(samples[i])
+                (0 until 6).minByOrNull { dist(l, refs[it]) }!!
             }
         }
-        tryPerm(0)
-
-        // Mỗi ô về mặt có ô giữa gần màu nhất, mỗi mặt nhận tối đa 8 ô (cộng ô giữa là 9).
-        val pairs = ArrayList<Triple<Int, Int, Float>>()
-        for (i in 0 until 54) {
-            if (i % 9 == 4) continue
-            for (f in 0 until 6) pairs.add(Triple(i, f, dist(labs[i], centerLab[f])))
-        }
-        pairs.sortBy { it.third }
-        val face = IntArray(54) { if (it % 9 == 4) it / 9 else -1 }
-        val load = IntArray(6)
-        for ((i, f, _) in pairs) {
-            if (face[i] >= 0 || load[f] >= 8) continue
-            face[i] = f
-            load[f]++
-        }
-        return IntArray(54) { faceColor[face[it]] }
     }
 }

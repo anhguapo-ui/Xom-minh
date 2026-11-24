@@ -27,7 +27,7 @@ import java.util.Locale
 import java.util.Random
 
 class MainActivity : Activity() {
-    private enum class Screen { HOME, PAINT, SCAN, SOLVE }
+    private enum class Screen { HOME, INPUT, SOLVE }
 
     private lateinit var root: FrameLayout
     private var screen = Screen.HOME
@@ -35,21 +35,25 @@ class MainActivity : Activity() {
 
     // Khối bé đang nhập (mã màu trong Palette, -1 là chưa tô).
     private val colors = IntArray(54) { -1 }
-    private var brush = 0
-    private var paintNote: String? = null
-    private var paintCount: TextView? = null
-    private var net: NetView? = null
-    private val swatches = ArrayList<Pair<Int, View>>()
+    private var brush = -2
+    private var faceStep = 0
+    private var suspects: Set<Int> = emptySet()
+    private var inputNote: String? = null
+    private val swatches = ArrayList<Pair<Int, TextView>>()
+    private var grid: FaceGrid? = null
+    private var poseCube: CubeView? = null
+    private var stepHint: TextView? = null
+    private var noteView: TextView? = null
+    private var backBtn: TextView? = null
+    private var forwardBtn: TextView? = null
 
-    // Quét bằng camera.
+    // Camera (tuỳ chọn, ngay trong màn nhập từng mặt).
+    private var cameraOn = false
     private var scanner: Scanner? = null
-    private var scanIndex = 0
-    private val scanned = arrayOfNulls<IntArray>(6)
-    private var live: IntArray? = null
     private var overlay: GridOverlay? = null
-    private var scanNet: NetView? = null
-    private var scanStep: TextView? = null
-    private var scanHint: TextView? = null
+    private var liveIds: IntArray? = null
+    private var liveSamples: IntArray? = null
+    private val learned = arrayOfNulls<FloatArray>(6)
 
     // Giải.
     private var startColors = IntArray(54)
@@ -126,8 +130,8 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        // Camera đã đóng khi tạm dừng: dựng lại màn quét để mở lại.
-        if (screen == Screen.SCAN && scanner != null) show(Screen.SCAN)
+        // Camera đã đóng khi tạm dừng: dựng lại màn để mở lại.
+        if (screen == Screen.INPUT && cameraOn) show(Screen.INPUT)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -139,13 +143,14 @@ class MainActivity : Activity() {
     override fun onBackPressed() {
         when (screen) {
             Screen.HOME -> super.onBackPressed()
-            Screen.SOLVE -> show(Screen.PAINT)
-            else -> show(Screen.HOME)
+            Screen.SOLVE -> show(Screen.INPUT)
+            Screen.INPUT -> if (faceStep > 0) goFace(faceStep - 1) else show(Screen.HOME)
         }
     }
 
     private fun resetColors() {
         for (i in 0 until 54) colors[i] = if (i % 9 == 4) Palette.defaultCenters[i / 9] else -1
+        suspects = emptySet()
     }
 
     // ---------- Khung chung ----------
@@ -156,13 +161,13 @@ class MainActivity : Activity() {
         cube?.halt()
         scanner?.close()
         scanner = null
+        overlay = null
         screen = target
         root.removeAllViews()
         cube = null
         when (target) {
             Screen.HOME -> buildHome()
-            Screen.PAINT -> buildPaint()
-            Screen.SCAN -> buildScan()
+            Screen.INPUT -> buildInput()
             Screen.SOLVE -> buildSolve()
         }
     }
@@ -238,11 +243,18 @@ class MainActivity : Activity() {
         col.addView(demo, LinearLayout.LayoutParams(size, size).apply { topMargin = dp(8) })
 
         val buttons = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        buttons.addView(button("📷  Quét khối bằng camera", BLUE) { openScan() }, lp(-1, -2))
-        buttons.addView(button("🎨  Tô màu từng ô", ORANGE) {
-            paintNote = null
-            show(Screen.PAINT)
-        }, lp(-1, -2, top = dp(12)))
+        buttons.addView(button("🧩  Nhập khối của con", ORANGE, size = 21f) {
+            resetColors()
+            inputNote = null
+            faceStep = 0
+            show(Screen.INPUT)
+        }, lp(-1, -2))
+        if ((0 until 54).any { it % 9 != 4 && colors[it] >= 0 }) {
+            buttons.addView(button("✏️  Sửa khối đang nhập", BLUE) {
+                inputNote = null
+                show(Screen.INPUT)
+            }, lp(-1, -2, top = dp(12)))
+        }
         buttons.addView(button("🎲  Khối mẫu để tập", GREEN) { sample() }, lp(-1, -2, top = dp(12)))
         col.addView(buttons, LinearLayout.LayoutParams(dp(340), -2).apply { topMargin = dp(12) })
 
@@ -267,138 +279,285 @@ class MainActivity : Activity() {
         startSolve()
     }
 
-    // ---------- Tô màu ----------
+    // ---------- Nhập màu từng mặt ----------
 
-    private fun buildPaint() {
-        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        col.addView(topBar("Tô màu khối") { show(Screen.HOME) })
-        val note = label(
-            paintNote ?: "Chọn một màu ở dưới rồi chạm (hoặc vuốt) vào các ô cho giống khối thật. Mặt TRÊN là mặt có ô giữa màu vàng.",
-            16f, INK
-        ).apply { setPadding(dp(18), dp(4), dp(18), dp(4)) }
-        col.addView(note)
-        paintCount = label("", 15f, INK_SOFT, center = true)
-        col.addView(paintCount)
-        net = NetView(this).apply {
-            colors = this@MainActivity.colors
-            onCell = { i ->
-                colors[i] = brush
-                updatePaintCount()
-            }
+    private fun centerName(face: Int) = Palette.names[colors[face * 9 + 4]].uppercase(Locale("vi", "VN"))
+
+    /** Lời dặn cách cầm khối cho mặt thứ [k] (thứ tự: trước, phải, sau, trái, trên, dưới). */
+    private fun hint(k: Int): String = when (k) {
+        0 -> "Cầm khối cho ô giữa ${centerName(Faces.U)} ở trên, ô giữa ${centerName(Faces.F)} nhìn vào con. Tô 9 ô giống hệt mặt con đang nhìn."
+        1 -> "Xoay cả khối sang TRÁI một nấc. Giờ ô giữa ${centerName(Faces.R)} nhìn vào con, ${centerName(Faces.U)} vẫn ở trên."
+        2 -> "Xoay sang TRÁI thêm một nấc: ô giữa ${centerName(Faces.B)} nhìn vào con."
+        3 -> "Xoay sang TRÁI thêm một nấc: ô giữa ${centerName(Faces.L)} nhìn vào con."
+        4 -> "Xoay sang TRÁI cho ${centerName(Faces.F)} về lại trước mặt. Rồi lật khối cho mặt ${centerName(Faces.U)} nhìn vào con, ${centerName(Faces.F)} ở phía dưới."
+        else -> "Lật ngược khối: mặt ${centerName(Faces.D)} nhìn vào con, ${centerName(Faces.F)} ở phía trên."
+    }
+
+    /** Màu ô giữa của 4 mặt quanh mặt [face]: trên, phải, dưới, trái (theo hướng bé đang nhìn). */
+    private fun neighborColors(face: Int): IntArray {
+        val c = Geometry.pos[face * 9 + 4]
+        fun dir(i: Int) = IntArray(3) { Geometry.pos[face * 9 + i][it] - c[it] }
+        val dirs = listOf(dir(1), dir(5), dir(7), dir(3))
+        return IntArray(4) { k ->
+            val f = (0 until 6).first { Geometry.axis[it].contentEquals(dirs[k]) }
+            colors[f * 9 + 4]
         }
+    }
+
+    private fun buildInput() {
+        val face = FACE_ORDER[faceStep]
+        poseCube = null
+        liveIds = null
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val camBtn = button(if (cameraOn) "🧊" else "📷", Color.WHITE, INK, 18f) { toggleCamera() }
+        col.addView(topBar("Mặt ${faceStep + 1} / 6", camBtn) {
+            if (faceStep > 0) goFace(faceStep - 1) else show(Screen.HOME)
+        })
+
+        stepHint = label(hint(faceStep), 18f, INK, bold = true).apply { setPadding(dp(18), dp(2), dp(18), dp(2)) }
+        noteView = label("", 15f, 0xFFB4234A.toInt()).apply { setPadding(dp(18), 0, dp(18), 0) }
+
+        // Hình minh hoạ: khối 3D xoay đúng tư thế, hoặc camera nếu bé bật.
+        val visual = FrameLayout(this)
+        if (cameraOn) {
+            visual.addView(buildCamera(face), FrameLayout.LayoutParams(-1, -1))
+        } else {
+            val pose = CubeView(this).apply {
+                colors = this@MainActivity.colors
+                highlightFace = face
+            }
+            poseCube = pose
+            val (y, p) = POSES[faceStep]
+            pose.yaw = y
+            pose.pitch = p
+            visual.addView(pose, FrameLayout.LayoutParams(-1, -1))
+        }
+
+        val faceGrid = FaceGrid(this).apply {
+            onCell = { i -> paintCell(face * 9 + i) }
+        }
+        grid = faceGrid
+
         val paletteRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER
-            setPadding(dp(8), dp(6), dp(8), dp(6))
+            setPadding(dp(6), dp(6), dp(6), dp(6))
         }
         swatches.clear()
-        for (id in listOf(0, 1, 2, 3, 4, 5, -1)) {
-            val v = TextView(this).apply {
-                gravity = Gravity.CENTER
-                text = if (id < 0) "⌫" else ""
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-                setTextColor(INK)
+        for (id in 0 until 6) {
+            val v = label("", 15f, Palette.ink(id), bold = true, center = true).apply {
                 isClickable = true
-                contentDescription = if (id < 0) "Tẩy" else Palette.names[id]
+                contentDescription = Palette.names[id]
                 setOnClickListener {
                     brush = id
-                    refreshSwatches()
+                    refreshPalette()
                 }
             }
             swatches.add(id to v)
-            val size = if (landscape) dp(38) else dp(44)
-            val gap = if (landscape) dp(3) else dp(4)
-            paletteRow.addView(v, LinearLayout.LayoutParams(size, size).apply { setMargins(gap, 0, gap, 0) })
+            val size = if (landscape) dp(44) else dp(50)
+            paletteRow.addView(v, LinearLayout.LayoutParams(size, size).apply { setMargins(dp(4), 0, dp(4), 0) })
         }
-        refreshSwatches()
-        val actions = LinearLayout(this).apply { setPadding(dp(14), dp(4), dp(14), dp(14)) }
-        actions.addView(button("Xoá hết", 0xFF9AA5B8.toInt()) {
-            AlertDialog.Builder(this)
-                .setMessage("Xoá hết màu đã tô?")
-                .setPositiveButton("Xoá") { _, _ ->
-                    resetColors()
-                    net?.invalidate()
-                    updatePaintCount()
-                }
-                .setNegativeButton("Thôi", null)
-                .show()
-        }, lp(0, -2, 1f))
-        actions.addView(button("Giải thôi! ✨", GREEN) { startSolve() }, lp(0, -2, 1.6f).apply { leftMargin = dp(10) })
+
+        val nav = LinearLayout(this).apply { setPadding(dp(14), dp(4), dp(14), dp(12)) }
+        backBtn = button("◀", Color.WHITE, INK, 20f) { if (faceStep > 0) goFace(faceStep - 1) }
+        val last = faceStep == 5
+        forwardBtn = button(if (last) "Giải thôi! ✨" else "Mặt tiếp ▶", GREEN, size = 20f) {
+            if (last) startSolve() else goFace(faceStep + 1)
+        }
+        nav.addView(backBtn, lp(dp(72), -2))
+        nav.addView(forwardBtn, lp(0, -2, 1f).apply { leftMargin = dp(10) })
 
         if (landscape) {
             val row = LinearLayout(this)
-            row.addView(net, lp(0, -1, 1.4f))
+            val left = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            left.addView(visual, lp(-1, 0, 1f))
+            row.addView(left, lp(0, -1, 0.8f))
+            row.addView(faceGrid, lp(0, -1, 1f))
             val side = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
+                gravity = Gravity.CENTER_VERTICAL
             }
+            val scroll = ScrollView(this)
+            val texts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            texts.addView(stepHint)
+            texts.addView(noteView)
+            scroll.addView(texts)
+            side.addView(scroll, lp(-1, 0, 1f))
             side.addView(paletteRow)
-            side.addView(actions, lp(-1, -2))
-            row.addView(side, lp(0, -1, 1f))
+            side.addView(nav)
+            row.addView(side, lp(0, -1, 1.2f))
             col.addView(row, lp(-1, 0, 1f))
         } else {
-            col.addView(net, lp(-1, 0, 1f))
+            col.addView(stepHint)
+            col.addView(noteView)
+            col.addView(visual, lp(-1, 0, 0.75f))
+            col.addView(faceGrid, lp(-1, 0, 1.25f))
             col.addView(paletteRow)
-            col.addView(actions)
+            col.addView(nav)
         }
         root.addView(col)
-        updatePaintCount()
+        refreshInput()
     }
 
-    private fun refreshSwatches() {
+    private fun buildCamera(face: Int): View {
+        val holder = FrameLayout(this).apply { setBackgroundColor(0xFF101218.toInt()) }
+        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.CAMERA), REQ_CAMERA)
+            holder.addView(label("Cho phép dùng camera để chụp màu nhé", 16f, Color.WHITE, center = true), FrameLayout.LayoutParams(-1, -1))
+            return holder
+        }
+        val frame = AspectFrame(this)
+        val cam = Scanner(
+            this,
+            onSample = { s ->
+                val ids = ColorMath.classifyFace(s, colors[face * 9 + 4], learned)
+                liveSamples = s
+                liveIds = ids
+                overlay?.live = ids
+            },
+            onSize = { w, h -> frame.aspect = w.toFloat() / h },
+            onError = { msg ->
+                runOnUiThread {
+                    Toast.makeText(this, "$msg. Con tô màu bằng tay nhé!", Toast.LENGTH_LONG).show()
+                    cameraOn = false
+                    show(Screen.INPUT)
+                }
+            }
+        )
+        scanner = cam
+        val grid = GridOverlay(this)
+        overlay = grid
+        frame.addView(cam.view, FrameLayout.LayoutParams(-1, -1))
+        frame.addView(grid, FrameLayout.LayoutParams(-1, -1))
+        holder.addView(frame, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        val take = button("📸 Lấy màu", BLUE, size = 17f) { takeFromCamera(face) }
+        holder.addView(take, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply {
+            setMargins(dp(8), dp(8), dp(8), dp(8))
+        })
+        return holder
+    }
+
+    private fun toggleCamera() {
+        cameraOn = !cameraOn
+        show(Screen.INPUT)
+    }
+
+    override fun onRequestPermissionsResult(code: Int, permissions: Array<out String>, results: IntArray) {
+        super.onRequestPermissionsResult(code, permissions, results)
+        if (code != REQ_CAMERA) return
+        if (results.isEmpty() || results[0] != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "Không có quyền camera, con tô màu bằng tay nhé", Toast.LENGTH_LONG).show()
+            cameraOn = false
+        }
+        if (screen == Screen.INPUT) show(Screen.INPUT)
+    }
+
+    private fun takeFromCamera(face: Int) {
+        val ids = liveIds
+        if (ids == null) {
+            Toast.makeText(this, "Đợi camera lên hình đã nhé", Toast.LENGTH_SHORT).show()
+            return
+        }
+        for (i in 0 until 9) if (i != 4) colors[face * 9 + i] = ids[i]
+        // Ghi nhớ màu thật của ô giữa để đoán các mặt sau chính xác hơn.
+        liveSamples?.let { learned[colors[face * 9 + 4]] = ColorMath.lab(it[4]) }
+        clearSuspects(face)
+        overlay?.animate()?.alpha(0.2f)?.setDuration(90)?.withEndAction { overlay?.animate()?.alpha(1f)?.setDuration(160) }
+        inputNote = "Máy đã đoán màu. Ô nào chưa giống khối thật thì chọn màu đúng rồi chạm vào để sửa."
+        refreshInput()
+    }
+
+    private fun clearSuspects(face: Int) {
+        suspects = suspects.filter { it / 9 != face }.toSet()
+    }
+
+    private fun paintCell(index: Int) {
+        if (brush == -2) {
+            Toast.makeText(this, "Con chọn một màu ở dưới trước nhé", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (index % 9 == 4 && colors[index] != brush) {
+            // Ô giữa quyết định tên mặt: hỏi lại cho chắc.
+            AlertDialog.Builder(this)
+                .setMessage("Đổi màu ô giữa thành ${Palette.names[brush].lowercase()}? Chỉ đổi nếu khối của con khác màu thật.")
+                .setPositiveButton("Đổi") { _, _ ->
+                    colors[index] = brush
+                    show(Screen.INPUT)
+                }
+                .setNegativeButton("Thôi", null)
+                .show()
+            return
+        }
+        colors[index] = brush
+        suspects = suspects - index
+        refreshInput()
+    }
+
+    private fun goFace(k: Int) {
+        if (k == faceStep) return
+        val old = faceStep
+        faceStep = k
+        inputNote = null
+        show(Screen.INPUT)
+        // Xoay khối minh hoạ y như động tác bé cần làm.
+        val pose = poseCube ?: return
+        pose.yaw = POSES[old].first
+        pose.pitch = POSES[old].second
+        pose.animateView(POSES[k].first, POSES[k].second)
+    }
+
+    private fun refreshInput() {
+        val face = FACE_ORDER[faceStep]
+        grid?.cells = IntArray(9) { colors[face * 9 + it] }
+        grid?.neighbors = neighborColors(face)
+        grid?.suspects = suspects.filter { it / 9 == face }.map { it % 9 }.toSet()
+        poseCube?.colors = colors
+        val filled = (0 until 9).count { colors[face * 9 + it] >= 0 }
+        noteView?.text = inputNote ?: when {
+            brush == -2 -> "Chọn một màu ở dưới, rồi chạm (hoặc vuốt) vào các ô."
+            filled < 9 -> "Còn ${9 - filled} ô chưa tô ở mặt này."
+            else -> "Xong mặt này rồi! 👍"
+        }
+        refreshPalette()
+    }
+
+    private fun refreshPalette() {
+        val count = IntArray(6)
+        for (c in colors) if (c >= 0) count[c]++
         for ((id, v) in swatches) {
+            val left = 9 - count[id]
+            v.text = left.toString()
             v.background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Palette.color(id))
                 if (id == brush) setStroke(dp(4), INK) else setStroke(dp(1), 0x33000000)
             }
+            v.setTextColor(if (left < 0) 0xFFE11D48.toInt() else Palette.ink(id))
+            v.alpha = if (left == 0 && id != brush) 0.45f else 1f
             v.scaleX = if (id == brush) 1.15f else 1f
             v.scaleY = v.scaleX
         }
     }
 
-    private fun updatePaintCount() {
-        val filled = colors.count { it >= 0 }
-        paintCount?.text = if (filled == 54) "Đã tô đủ 54 ô 👍" else "Đã tô $filled / 54 ô"
-    }
-
-    /** Đọc khối từ các ô đã tô. Trả về khối, hoặc lời nhắn lỗi dễ hiểu. */
-    private fun readCube(): Pair<CubieCube?, String?> {
-        val empty = colors.count { it < 0 }
-        if (empty > 0) return null to "Còn $empty ô chưa tô màu."
-        val centers = IntArray(6) { colors[it * 9 + 4] }
-        if (centers.distinct().size != 6) return null to "Sáu ô ở giữa sáu mặt phải là sáu màu khác nhau."
-        val wrong = (0 until 6).mapNotNull { c ->
-            val n = colors.count { it == c }
-            if (n != 9) "${Palette.names[c]} $n ô" else null
-        }
-        if (wrong.isNotEmpty()) return null to "Mỗi màu phải có đúng 9 ô. Đang lệch: ${wrong.joinToString(", ")}."
-        val faceOf = IntArray(6)
-        for (f in 0 until 6) faceOf[centers[f]] = f
-        val (c, err) = CubieCube.fromFacelets(IntArray(54) { faceOf[colors[it]] })
-        val tip = " Con so lại với khối thật nhé."
-        return when (err) {
-            CubieCube.OK -> c to null
-            CubieCube.ERR_PIECE -> null to "Có một góc hoặc cạnh mang màu không thể có trên khối Rubik thật (ví dụ hai màu đối diện nằm sát nhau).$tip"
-            CubieCube.ERR_DUP -> null to "Có hai miếng giống hệt nhau, chắc là tô nhầm vài ô.$tip"
-            CubieCube.ERR_TWIST -> null to "Có một góc bị xoay lệch. Nếu đã tô đúng hết thì có thể khối bị cạy ra và lắp lại sai."
-            CubieCube.ERR_FLIP -> null to "Có một cạnh bị lật ngược. Nếu đã tô đúng hết thì có thể khối bị cạy ra và lắp lại sai."
-            else -> null to "Có hai miếng bị đổi chỗ cho nhau. Nếu đã tô đúng hết thì có thể khối bị cạy ra và lắp lại sai."
-        }
-    }
-
     private fun startSolve() {
-        val (cubie, error) = readCube()
+        val names = Array(6) { Palette.names[it] }
+        val result = InputCheck.check(colors, names)
+        val cubie = result.cube
         if (cubie == null) {
-            paintNote = error
-            show(Screen.PAINT)
+            suspects = result.suspects
+            val firstFace = suspects.map { it / 9 }.minByOrNull { FACE_ORDER.indexOf(it) }
+            if (firstFace != null) faceStep = FACE_ORDER.indexOf(firstFace)
+            inputNote = result.message
+            cameraOn = false
+            show(Screen.INPUT)
             AlertDialog.Builder(this)
                 .setTitle("Ơ, hình như chưa đúng")
-                .setMessage(error)
+                .setMessage(result.message + if (suspects.isNotEmpty()) "\n\nCác ô cần xem lại có viền đỏ." else "")
                 .setPositiveButton("Để con xem lại", null)
                 .show()
             return
         }
-        if (screen == Screen.PAINT) sampleScramble = null
+        if (screen == Screen.INPUT) sampleScramble = null
+        suspects = emptySet()
         startColors = colors.copyOf()
         fastSteps = null
         learnSteps = null
@@ -407,7 +566,7 @@ class MainActivity : Activity() {
         celebrated = false
         lastSpokenIndex = -1
         val token = ++solveToken
-        val names = Array(6) { Palette.names[colors[it * 9 + 4]] }
+        val centerNames = Array(6) { Palette.names[colors[it * 9 + 4]] }
         Thread {
             var fast: List<Step>? = null
             var learn: List<Step>? = null
@@ -419,7 +578,7 @@ class MainActivity : Activity() {
                 // Dùng cách giải từng tầng thay thế.
             }
             try {
-                val steps = Beginner.solve(cubie) { names[it] }
+                val steps = Beginner.solve(cubie) { centerNames[it] }
                 if (cubie.apply(steps.map { it.move }.toIntArray()).isSolved()) learn = steps
             } catch (e: Throwable) {
                 // Dùng cách giải nhanh thay thế.
@@ -433,141 +592,6 @@ class MainActivity : Activity() {
             }
         }.start()
         show(Screen.SOLVE)
-    }
-
-    // ---------- Quét bằng camera ----------
-
-    private fun openScan() {
-        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.CAMERA), REQ_CAMERA)
-            return
-        }
-        scanIndex = 0
-        scanned.fill(null)
-        live = null
-        show(Screen.SCAN)
-    }
-
-    override fun onRequestPermissionsResult(code: Int, permissions: Array<out String>, results: IntArray) {
-        super.onRequestPermissionsResult(code, permissions, results)
-        if (code != REQ_CAMERA) return
-        if (results.isNotEmpty() && results[0] == PackageManager.PERMISSION_GRANTED) {
-            openScan()
-        } else {
-            Toast.makeText(this, "Không có quyền camera, mình tô màu bằng tay nhé", Toast.LENGTH_LONG).show()
-            paintNote = null
-            show(Screen.PAINT)
-        }
-    }
-
-    private fun buildScan() {
-        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        col.addView(topBar("Quét khối") { show(Screen.HOME) })
-        scanStep = label("", 16f, TITLE, bold = true).apply { setPadding(dp(18), 0, dp(18), 0) }
-        scanHint = label("", 18f, INK).apply { setPadding(dp(18), dp(2), dp(18), dp(6)) }
-        col.addView(scanStep)
-        col.addView(scanHint)
-
-        val frame = AspectFrame(this)
-        val holder = FrameLayout(this).apply { setBackgroundColor(0xFF101218.toInt()) }
-        val cam = Scanner(
-            this,
-            onSample = { s ->
-                live = s
-                overlay?.live = s
-                refreshScanNet()
-            },
-            onSize = { w, h -> frame.aspect = w.toFloat() / h },
-            onError = { msg ->
-                runOnUiThread {
-                    Toast.makeText(this, "$msg. Mình tô màu bằng tay nhé!", Toast.LENGTH_LONG).show()
-                    paintNote = null
-                    show(Screen.PAINT)
-                }
-            }
-        )
-        scanner = cam
-        overlay = GridOverlay(this)
-        frame.addView(cam.view, FrameLayout.LayoutParams(-1, -1))
-        frame.addView(overlay, FrameLayout.LayoutParams(-1, -1))
-        holder.addView(frame, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-
-        scanNet = NetView(this).apply { showLabels = false }
-        val shoot = button("📸  Chụp mặt này", BLUE, size = 20f) { capture() }
-        val redo = button("↶ Chụp lại mặt trước", Color.WHITE, INK, 15f) {
-            if (scanIndex > 0) {
-                scanIndex--
-                scanned[scanIndex] = null
-                refreshScanText()
-                refreshScanNet()
-            }
-        }
-
-        if (landscape) {
-            val row = LinearLayout(this)
-            row.addView(holder, lp(0, -1, 1.5f))
-            val side = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(12), 0, dp(12), dp(12))
-            }
-            side.addView(scanNet, lp(-1, 0, 1f))
-            side.addView(shoot, lp(-1, -2, top = dp(8)))
-            side.addView(redo, lp(-1, -2, top = dp(8)))
-            row.addView(side, lp(0, -1, 1f))
-            col.addView(row, lp(-1, 0, 1f))
-        } else {
-            col.addView(holder, lp(-1, 0, 1f))
-            val bottom = LinearLayout(this).apply {
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(12), dp(10), dp(12), dp(12))
-            }
-            bottom.addView(scanNet, LinearLayout.LayoutParams(dp(130), dp(100)))
-            val buttons = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-            buttons.addView(shoot, lp(-1, -2))
-            buttons.addView(redo, lp(-1, -2, top = dp(8)))
-            bottom.addView(buttons, lp(0, -2, 1f).apply { leftMargin = dp(12) })
-            col.addView(bottom)
-        }
-        root.addView(col)
-        refreshScanText()
-        refreshScanNet()
-    }
-
-    private fun refreshScanText() {
-        scanStep?.text = "Mặt ${scanIndex + 1} / 6"
-        scanHint?.text = SCAN_HINTS[scanIndex.coerceIn(0, 5)]
-    }
-
-    private fun refreshScanNet() {
-        val view = scanNet ?: return
-        val shown = IntArray(54) { -1 }
-        for (k in 0 until 6) {
-            val s = (if (k == scanIndex) live else scanned[k]) ?: continue
-            val face = SCAN_FACES[k]
-            for (i in 0 until 9) shown[face * 9 + i] = ColorMath.guess(s[i])
-        }
-        view.colors = shown
-        view.highlight = if (scanIndex < 6) SCAN_FACES[scanIndex] else -1
-    }
-
-    private fun capture() {
-        val s = live
-        if (s == null) {
-            Toast.makeText(this, "Đợi camera lên hình đã nhé", Toast.LENGTH_SHORT).show()
-            return
-        }
-        scanned[scanIndex] = s.copyOf()
-        overlay?.animate()?.alpha(0.2f)?.setDuration(90)?.withEndAction { overlay?.animate()?.alpha(1f)?.setDuration(160) }
-        scanIndex++
-        if (scanIndex < 6) {
-            refreshScanText()
-            refreshScanNet()
-            return
-        }
-        val result = ColorMath.classify(Array(6) { scanned[it]!! }, SCAN_FACES)
-        result.copyInto(colors)
-        paintNote = "Máy đã đoán màu xong! Con so với khối thật, ô nào sai thì chọn màu đúng rồi chạm vào để sửa nhé."
-        show(Screen.PAINT)
     }
 
     // ---------- Giải ----------
@@ -585,7 +609,7 @@ class MainActivity : Activity() {
             }
         }
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        col.addView(topBar("Giải khối", speakBtn) { show(Screen.PAINT) })
+        col.addView(topBar("Giải khối", speakBtn) { show(Screen.INPUT) })
 
         val tabs = LinearLayout(this).apply {
             background = round(0x80FFFFFF.toInt(), dp(24))
@@ -862,15 +886,12 @@ class MainActivity : Activity() {
 
         private val FACE_NAMES = arrayOf("mặt trên", "mặt phải", "mặt trước", "mặt dưới", "mặt trái", "mặt sau")
 
-        /** Thứ tự quét: trước, phải, sau, trái, trên, dưới. */
-        private val SCAN_FACES = intArrayOf(Faces.F, Faces.R, Faces.B, Faces.L, Faces.U, Faces.D)
-        private val SCAN_HINTS = arrayOf(
-            "Cầm khối: ô giữa VÀNG ở trên. Cho mặt có ô giữa XANH LÁ nhìn vào camera, khớp 9 ô vào lưới rồi bấm Chụp.",
-            "Xoay cả khối sang TRÁI một nấc (vàng vẫn ở trên) để mặt bên phải nhìn vào camera.",
-            "Xoay sang TRÁI thêm một nấc nữa.",
-            "Xoay sang TRÁI thêm một nấc nữa.",
-            "Xoay sang TRÁI để mặt xanh lá về lại phía trước. Rồi nghiêng khối cho mặt VÀNG nhìn vào camera, mặt xanh lá ở phía dưới.",
-            "Lật ngược khối: mặt TRẮNG nhìn vào camera, mặt xanh lá ở phía trên."
+        /** Thứ tự nhập: trước, phải, sau, trái, trên, dưới (xoay sang trái liên tục rồi lật). */
+        private val FACE_ORDER = intArrayOf(Faces.F, Faces.R, Faces.B, Faces.L, Faces.U, Faces.D)
+
+        /** Góc nhìn khối minh hoạ cho từng mặt (yaw, pitch), hơi chếch để thấy mặt bên cạnh. */
+        private val POSES = arrayOf(
+            -20f to 18f, -110f to 18f, -200f to 18f, -290f to 18f, -380f to 70f, -380f to -70f
         )
     }
 }

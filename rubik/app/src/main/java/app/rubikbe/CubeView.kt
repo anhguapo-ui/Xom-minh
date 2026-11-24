@@ -49,6 +49,13 @@ class CubeView(ctx: Context) : View(ctx) {
             invalidate()
         }
 
+    /** Mặt đang được tô: vẽ viền nổi bật quanh mặt đó. */
+    var highlightFace = -1
+        set(value) {
+            field = value
+            invalidate()
+        }
+
     private var animMove = -1
     private var animT = 0f
     private var mover: ValueAnimator? = null
@@ -132,7 +139,7 @@ class CubeView(ctx: Context) : View(ctx) {
         }
     }
 
-    private fun animateView(toYaw: Float, toPitch: Float) {
+    fun animateView(toYaw: Float, toPitch: Float) {
         viewer?.cancel()
         val fromYaw = yaw
         val fromPitch = pitch
@@ -242,6 +249,7 @@ class CubeView(ctx: Context) : View(ctx) {
         cubies.sortBy { it.depth }
         for (c in cubies) drawCubie(canvas, c, if (c.moving) ak else -1, angle)
         if (pendingMove >= 0 && animMove < 0) drawArrow(canvas, pendingMove)
+        if (highlightFace >= 0 && faceFacing(highlightFace, yaw, pitch) > 0.05f) drawOutline(canvas, highlightFace)
     }
 
     private fun drawCubie(canvas: Canvas, c: Cubie, ak: Int, angle: Float) {
@@ -362,6 +370,32 @@ class CubeView(ctx: Context) : View(ctx) {
             label.setShadowLayer(scale * 0.08f, 0f, 0f, 0xFF1B1D2A.toInt())
             canvas.drawText("×2", mx, my + label.textSize * 0.35f, label)
         }
+    }
+
+    private fun drawOutline(canvas: Canvas, face: Int) {
+        val k = Geometry.axisIndex(face)
+        val s = Geometry.axis[face][k]
+        val t1 = (k + 1) % 3
+        val t2 = (k + 2) % 3
+        val ring = floatArrayOf(1.55f, 1.55f, -1.55f, -1.55f)
+        val ring2 = floatArrayOf(1.55f, -1.55f, -1.55f, 1.55f)
+        for (i in 0 until 4) {
+            tmp[0] = 0f; tmp[1] = 0f; tmp[2] = 0f
+            tmp[k] = s * 1.5f
+            tmp[t1] = ring[i]
+            tmp[t2] = ring2[i]
+            toView(tmp)
+            project(tmp, pts, i * 2)
+        }
+        path.rewind()
+        path.moveTo(pts[0], pts[1])
+        path.lineTo(pts[2], pts[3])
+        path.lineTo(pts[4], pts[5])
+        path.lineTo(pts[6], pts[7])
+        path.close()
+        arrow.color = ACCENT
+        arrow.strokeWidth = scale * 0.12f
+        canvas.drawPath(path, arrow)
     }
 
     private fun shade(color: Int, f: Float): Int {
