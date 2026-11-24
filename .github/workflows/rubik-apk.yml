@@ -1,0 +1,53 @@
+name: Build Rubik Be APK
+
+on:
+  push:
+    paths:
+      - "rubik/**"
+      - ".github/workflows/rubik-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rubik
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build APK
+        run: ./gradlew --no-daemon assembleRelease -PbuildNumber=${{ github.run_number }}
+      - name: Screenshots
+        continue-on-error: true
+        run: ./gradlew --no-daemon testDebugUnitTest -PbuildNumber=${{ github.run_number }}
+      - name: Rename APK
+        run: cp app/build/outputs/apk/release/app-release.apk RubikBe-${{ github.run_number }}.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RubikBe-apk
+          path: |
+            rubik/RubikBe-${{ github.run_number }}.apk
+            rubik/app/build/screens/*.png
+      # Bản mới nhất luôn có link tải trực tiếp cố định:
+      # https://github.com/<owner>/<repo>/releases/download/rubik-latest/RubikBe.apk
+      - name: Publish direct download link
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp RubikBe-${{ github.run_number }}.apk RubikBe.apk
+          gh release view rubik-latest >/dev/null 2>&1 || \
+            gh release create rubik-latest --prerelease --target "$GITHUB_SHA" \
+              --title "Rubik Be" --notes "Ban build moi nhat cua app Rubik Be (giai Rubik cho tre em)."
+          gh release upload rubik-latest RubikBe.apk --clobber
+          if ls app/build/screens/*.png >/dev/null 2>&1; then
+            gh release upload rubik-latest app/build/screens/*.png --clobber
+          fi
+          gh release edit rubik-latest --title "Rubik Be ban ${{ github.run_number }}"
