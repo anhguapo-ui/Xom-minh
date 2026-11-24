@@ -40,7 +40,6 @@ class MainActivity : Activity() {
     private var suspects: Set<Int> = emptySet()
     private var inputNote: String? = null
     private val swatches = ArrayList<Pair<Int, TextView>>()
-    private var grid: FaceGrid? = null
     private var poseCube: CubeView? = null
     private var stepHint: TextView? = null
     private var noteView: TextView? = null
@@ -64,6 +63,10 @@ class MainActivity : Activity() {
     private var learnMode = false
     private var stepIndex = 0
     private var autoPlay = false
+
+    /** Tốc độ: 0 chậm, 1 vừa, 2 nhanh. */
+    private var speed = 0
+    private var speedBtn: TextView? = null
     private var sampleScramble: String? = null
     private var celebrated = false
     private var lastSpokenIndex = -1
@@ -97,6 +100,7 @@ class MainActivity : Activity() {
         }
         setContentView(root)
         speak = getPreferences(MODE_PRIVATE).getBoolean("speak", true)
+        speed = getPreferences(MODE_PRIVATE).getInt("speed", 0).coerceIn(0, 2)
         resetColors()
         // Dựng sẵn bảng tra của bộ giải trong lúc bé đang tô màu.
         Thread { TwoPhase.prepare(pruneCache) }.start()
@@ -293,31 +297,20 @@ class MainActivity : Activity() {
         else -> "Lật ngược khối: mặt ${centerName(Faces.D)} nhìn vào con, ${centerName(Faces.F)} ở phía trên."
     }
 
-    /** Màu ô giữa của 4 mặt quanh mặt [face]: trên, phải, dưới, trái (theo hướng bé đang nhìn). */
-    private fun neighborColors(face: Int): IntArray {
-        val c = Geometry.pos[face * 9 + 4]
-        fun dir(i: Int) = IntArray(3) { Geometry.pos[face * 9 + i][it] - c[it] }
-        val dirs = listOf(dir(1), dir(5), dir(7), dir(3))
-        return IntArray(4) { k ->
-            val f = (0 until 6).first { Geometry.axis[it].contentEquals(dirs[k]) }
-            colors[f * 9 + 4]
-        }
-    }
-
     private fun buildInput() {
         val face = FACE_ORDER[faceStep]
         poseCube = null
         liveIds = null
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val camBtn = button(if (cameraOn) "🧊" else "📷", Color.WHITE, INK, 18f) { toggleCamera() }
-        col.addView(topBar("Mặt ${faceStep + 1} / 6", camBtn) {
+        col.addView(topBar("Tô màu khối", camBtn) {
             if (faceStep > 0) goFace(faceStep - 1) else show(Screen.HOME)
         })
 
-        stepHint = label(hint(faceStep), 18f, INK, bold = true).apply { setPadding(dp(18), dp(2), dp(18), dp(2)) }
-        noteView = label("", 15f, 0xFFB4234A.toInt()).apply { setPadding(dp(18), 0, dp(18), 0) }
+        stepHint = label(hint(faceStep), 17f, INK, bold = true).apply { setPadding(dp(18), dp(2), dp(18), dp(2)) }
+        noteView = label("", 15f, 0xFFB4234A.toInt()).apply { setPadding(dp(18), 0, dp(18), dp(2)) }
 
-        // Hình minh hoạ: khối 3D xoay đúng tư thế, hoặc camera nếu bé bật.
+        // Khối 3D to: bé chạm thẳng vào ô để tô, vuốt để xoay. Hoặc camera nếu bé bật.
         val visual = FrameLayout(this)
         if (cameraOn) {
             visual.addView(buildCamera(face), FrameLayout.LayoutParams(-1, -1))
@@ -325,18 +318,13 @@ class MainActivity : Activity() {
             val pose = CubeView(this).apply {
                 colors = this@MainActivity.colors
                 highlightFace = face
+                yaw = POSES[faceStep].first
+                pitch = POSES[faceStep].second
+                onSticker = { i -> paintCell(i) }
             }
             poseCube = pose
-            val (y, p) = POSES[faceStep]
-            pose.yaw = y
-            pose.pitch = p
             visual.addView(pose, FrameLayout.LayoutParams(-1, -1))
         }
-
-        val faceGrid = FaceGrid(this).apply {
-            onCell = { i -> paintCell(face * 9 + i) }
-        }
-        grid = faceGrid
 
         val paletteRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER
@@ -344,34 +332,27 @@ class MainActivity : Activity() {
         }
         swatches.clear()
         for (id in 0 until 6) {
-            val v = label("", 15f, Palette.ink(id), bold = true, center = true).apply {
+            val v = label("", 16f, Palette.ink(id), bold = true, center = true).apply {
                 isClickable = true
                 contentDescription = Palette.names[id]
-                setOnClickListener {
-                    brush = id
-                    refreshPalette()
-                }
+                setOnClickListener { pickBrush(id) }
             }
             swatches.add(id to v)
-            val size = if (landscape) dp(44) else dp(50)
+            val size = if (landscape) dp(46) else dp(52)
             paletteRow.addView(v, LinearLayout.LayoutParams(size, size).apply { setMargins(dp(4), 0, dp(4), 0) })
         }
 
         val nav = LinearLayout(this).apply { setPadding(dp(14), dp(4), dp(14), dp(12)) }
         backBtn = button("◀", Color.WHITE, INK, 20f) { if (faceStep > 0) goFace(faceStep - 1) }
-        val last = faceStep == 5
-        forwardBtn = button(if (last) "Giải thôi! ✨" else "Mặt tiếp ▶", GREEN, size = 20f) {
-            if (last) startSolve() else goFace(faceStep + 1)
+        forwardBtn = button("", GREEN, size = 20f) {
+            if (colors.all { it >= 0 } || faceStep == 5) startSolve() else goFace(faceStep + 1)
         }
         nav.addView(backBtn, lp(dp(72), -2))
         nav.addView(forwardBtn, lp(0, -2, 1f).apply { leftMargin = dp(10) })
 
         if (landscape) {
             val row = LinearLayout(this)
-            val left = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-            left.addView(visual, lp(-1, 0, 1f))
-            row.addView(left, lp(0, -1, 0.8f))
-            row.addView(faceGrid, lp(0, -1, 1f))
+            row.addView(visual, lp(0, -1, 1f))
             val side = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -384,13 +365,12 @@ class MainActivity : Activity() {
             side.addView(scroll, lp(-1, 0, 1f))
             side.addView(paletteRow)
             side.addView(nav)
-            row.addView(side, lp(0, -1, 1.2f))
+            row.addView(side, lp(0, -1, 1.1f))
             col.addView(row, lp(-1, 0, 1f))
         } else {
             col.addView(stepHint)
             col.addView(noteView)
-            col.addView(visual, lp(-1, 0, 0.75f))
-            col.addView(faceGrid, lp(-1, 0, 1.25f))
+            col.addView(visual, lp(-1, 0, 1f))
             col.addView(paletteRow)
             col.addView(nav)
         }
@@ -457,13 +437,31 @@ class MainActivity : Activity() {
             Toast.makeText(this, "Đợi camera lên hình đã nhé", Toast.LENGTH_SHORT).show()
             return
         }
-        for (i in 0 until 9) if (i != 4) colors[face * 9 + i] = ids[i]
         // Ghi nhớ màu thật của ô giữa để đoán các mặt sau chính xác hơn.
         liveSamples?.let { learned[colors[face * 9 + 4]] = ColorMath.lab(it[4]) }
+        for (i in 0 until 9) if (i != 4) colors[face * 9 + i] = -1
+        // Không để màu nào vượt quá 9 ô: ô bị thừa để trống cho bé tự tô.
+        var skipped = 0
+        for (i in 0 until 9) {
+            if (i == 4) continue
+            if (countOf(ids[i]) < 9) colors[face * 9 + i] = ids[i] else skipped++
+        }
         clearSuspects(face)
         overlay?.animate()?.alpha(0.2f)?.setDuration(90)?.withEndAction { overlay?.animate()?.alpha(1f)?.setDuration(160) }
-        inputNote = "Máy đã đoán màu. Ô nào chưa giống khối thật thì chọn màu đúng rồi chạm vào để sửa."
+        inputNote = if (skipped > 0) "Máy đã đoán màu. Còn $skipped ô để trống vì màu đó đã đủ 9 ô, con tự tô nhé."
+        else "Máy đã đoán màu. Ô nào chưa giống khối thật thì chọn màu đúng rồi chạm vào để sửa."
         refreshInput()
+    }
+
+    private fun countOf(color: Int): Int = colors.count { it == color }
+
+    private fun pickBrush(id: Int) {
+        if (countOf(id) >= 9) {
+            Toast.makeText(this, "Màu ${Palette.names[id].lowercase()} đã đủ 9 ô rồi", Toast.LENGTH_SHORT).show()
+            return
+        }
+        brush = id
+        refreshPalette()
     }
 
     private fun clearSuspects(face: Int) {
@@ -471,24 +469,29 @@ class MainActivity : Activity() {
     }
 
     private fun paintCell(index: Int) {
-        if (brush == -2) {
+        if (index % 9 == 4) {
+            Toast.makeText(this, "Ô giữa đã có sẵn màu rồi, con tô các ô xung quanh nhé", Toast.LENGTH_SHORT).show()
+            return
+        }
+        // Chạm lại vào ô đã cùng màu thì xoá ô đó (để sửa cho dễ).
+        if (colors[index] == brush && brush >= 0) {
+            colors[index] = -1
+            suspects = suspects - index
+            refreshInput()
+            return
+        }
+        if (brush < 0) {
             Toast.makeText(this, "Con chọn một màu ở dưới trước nhé", Toast.LENGTH_SHORT).show()
             return
         }
-        if (index % 9 == 4 && colors[index] != brush) {
-            // Ô giữa quyết định tên mặt: hỏi lại cho chắc.
-            AlertDialog.Builder(this)
-                .setMessage("Đổi màu ô giữa thành ${Palette.names[brush].lowercase()}? Chỉ đổi nếu khối của con khác màu thật.")
-                .setPositiveButton("Đổi") { _, _ ->
-                    colors[index] = brush
-                    show(Screen.INPUT)
-                }
-                .setNegativeButton("Thôi", null)
-                .show()
+        if (countOf(brush) >= 9) {
+            Toast.makeText(this, "Màu ${Palette.names[brush].lowercase()} đã đủ 9 ô rồi", Toast.LENGTH_SHORT).show()
             return
         }
         colors[index] = brush
         suspects = suspects - index
+        // Tô hết màu này thì tự chuyển sang màu còn thiếu đầu tiên.
+        if (countOf(brush) >= 9) brush = (0 until 6).firstOrNull { countOf(it) < 9 } ?: -2
         refreshInput()
     }
 
@@ -497,42 +500,48 @@ class MainActivity : Activity() {
         val old = faceStep
         faceStep = k
         inputNote = null
-        show(Screen.INPUT)
-        // Xoay khối minh hoạ y như động tác bé cần làm.
-        val pose = poseCube ?: return
-        pose.yaw = POSES[old].first
-        pose.pitch = POSES[old].second
-        pose.animateView(POSES[k].first, POSES[k].second)
+        if (cameraOn) {
+            show(Screen.INPUT)
+            return
+        }
+        // Xoay khối y như động tác bé cần làm, giữ nguyên màn hình.
+        val face = FACE_ORDER[k]
+        poseCube?.let {
+            it.highlightFace = face
+            it.yaw = POSES[old].first
+            it.pitch = POSES[old].second
+            it.animateView(POSES[k].first, POSES[k].second)
+        }
+        stepHint?.text = hint(k)
+        refreshInput()
     }
 
     private fun refreshInput() {
         val face = FACE_ORDER[faceStep]
-        grid?.cells = IntArray(9) { colors[face * 9 + it] }
-        grid?.neighbors = neighborColors(face)
-        grid?.suspects = suspects.filter { it / 9 == face }.map { it % 9 }.toSet()
         poseCube?.colors = colors
+        poseCube?.suspects = suspects
         val filled = (0 until 9).count { colors[face * 9 + it] >= 0 }
+        val all = colors.count { it >= 0 }
         noteView?.text = inputNote ?: when {
-            brush == -2 -> "Chọn một màu ở dưới, rồi chạm (hoặc vuốt) vào các ô."
-            filled < 9 -> "Còn ${9 - filled} ô chưa tô ở mặt này."
-            else -> "Xong mặt này rồi! 👍"
+            brush < 0 -> "Chọn một màu ở dưới, rồi chạm vào các ô trên khối. Vuốt để xoay khối."
+            filled < 9 -> "Mặt có viền hồng còn ${9 - filled} ô chưa tô. Chạm lại ô đã tô để xoá."
+            else -> "Xong mặt này rồi! 👍 Đã tô $all / 54 ô."
         }
+        forwardBtn?.text = if (all == 54 || faceStep == 5) "Giải thôi! ✨" else "Mặt tiếp ▶"
+        backBtn?.alpha = if (faceStep > 0) 1f else 0.4f
         refreshPalette()
     }
 
     private fun refreshPalette() {
-        val count = IntArray(6)
-        for (c in colors) if (c >= 0) count[c]++
         for ((id, v) in swatches) {
-            val left = 9 - count[id]
+            val left = (9 - countOf(id)).coerceAtLeast(0)
             v.text = left.toString()
             v.background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Palette.color(id))
                 if (id == brush) setStroke(dp(4), INK) else setStroke(dp(1), 0x33000000)
             }
-            v.setTextColor(if (left < 0) 0xFFE11D48.toInt() else Palette.ink(id))
-            v.alpha = if (left == 0 && id != brush) 0.45f else 1f
+            v.alpha = if (left == 0) 0.35f else 1f
             v.scaleX = if (id == brush) 1.15f else 1f
             v.scaleY = v.scaleX
         }
@@ -644,9 +653,20 @@ class MainActivity : Activity() {
         controls.addView(nextBtn, lp(0, -2, 1f).apply { setMargins(dp(10), 0, dp(10), 0) })
         controls.addView(autoBtn, lp(dp(70), -2))
 
-        val reset = label("↺ Góc nhìn ban đầu", 14f, INK_SOFT, center = true).apply {
-            setPadding(0, dp(6), 0, dp(6))
+        val resetLabel = label("↺ Góc nhìn ban đầu", 14f, INK_SOFT, center = true).apply {
+            setPadding(dp(8), dp(6), dp(8), dp(6))
             setOnClickListener { cube?.resetView() }
+        }
+        speedBtn = button(SPEED_NAMES[speed], Color.WHITE, INK, 15f) {
+            speed = (speed + 1) % 3
+            getPreferences(MODE_PRIVATE).edit().putInt("speed", speed).apply()
+            speedBtn?.text = SPEED_NAMES[speed]
+        }.apply { setPadding(dp(14), dp(8), dp(14), dp(8)) }
+        val reset = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(4), 0, dp(4))
+            addView(resetLabel, lp(-2, -2))
+            addView(speedBtn, lp(-2, -2).apply { leftMargin = dp(12) })
         }
 
         if (landscape) {
@@ -802,11 +822,13 @@ class MainActivity : Activity() {
         val m = list[stepIndex].move
         view.pendingMove = -1
         enableControls(prev = false, next = false)
-        view.animateMove(m) {
+        view.animateMove(m, MOVE_MS[speed]) {
             stepIndex++
             refreshSolve()
             if (autoPlay) {
-                if (stepIndex < list.size) handler.postDelayed(autoStep, 650) else autoPlay = false
+                // Dừng cho bé làm theo trên khối thật, rồi hiện mũi tên + đọc bước sau trước khi xoay.
+                if (stepIndex < list.size) handler.postDelayed(autoStep, PAUSE_MS[speed] + PREVIEW_MS[speed])
+                else autoPlay = false
             }
         }
     }
@@ -820,7 +842,7 @@ class MainActivity : Activity() {
         val m = Moves.inverse(list[stepIndex - 1].move)
         view.pendingMove = -1
         enableControls(prev = false, next = false)
-        view.animateMove(m) {
+        view.animateMove(m, MOVE_MS[speed]) {
             stepIndex--
             celebrated = false
             refreshSolve()
@@ -831,7 +853,8 @@ class MainActivity : Activity() {
         autoPlay = !autoPlay
         handler.removeCallbacks(autoStep)
         autoBtn?.text = if (autoPlay) "⏸" else "▶▶"
-        if (autoPlay) next()
+        // Bước hiện tại đã có mũi tên và lời đọc: cho bé nhìn một chút rồi mới xoay.
+        if (autoPlay) handler.postDelayed(autoStep, PREVIEW_MS[speed])
     }
 
     private fun speakCurrent() {
@@ -883,6 +906,12 @@ class MainActivity : Activity() {
         private const val GREEN = 0xFF1FAE63.toInt()
         private const val BG_TOP = 0xFFFFF4DE.toInt()
         private const val BG_BOTTOM = 0xFFDDEEFF.toInt()
+
+        private val SPEED_NAMES = arrayOf("🐢 Chậm", "🐇 Vừa", "⚡ Nhanh")
+        /** Thời gian xoay một bước, dừng cho bé làm theo, và xem trước bước sau (mili giây). */
+        private val MOVE_MS = longArrayOf(1500, 900, 500)
+        private val PAUSE_MS = longArrayOf(3000, 1800, 600)
+        private val PREVIEW_MS = longArrayOf(1500, 900, 200)
 
         private val FACE_NAMES = arrayOf("mặt trên", "mặt phải", "mặt trước", "mặt dưới", "mặt trái", "mặt sau")
 

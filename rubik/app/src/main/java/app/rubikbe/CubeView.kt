@@ -56,6 +56,20 @@ class CubeView(ctx: Context) : View(ctx) {
             invalidate()
         }
 
+    /** Các ô (0..53) nghi bị tô nhầm: vẽ viền đỏ. */
+    var suspects: Set<Int> = emptySet()
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** Chạm nhẹ vào một ô (không phải vuốt xoay) thì báo chỉ số ô 0..53. */
+    var onSticker: ((Int) -> Unit)? = null
+
+    // Vị trí trên màn hình của các ô vừa vẽ, theo thứ tự vẽ (ô vẽ sau nằm trên).
+    private val hitIndex = ArrayList<Int>(27)
+    private val hitQuads = ArrayList<FloatArray>(27)
+
     private var animMove = -1
     private var animT = 0f
     private var mover: ValueAnimator? = null
@@ -71,6 +85,16 @@ class CubeView(ctx: Context) : View(ctx) {
         strokeJoin = Paint.Join.ROUND
     }
     private val head = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val badPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = 0xFFE11D48.toInt()
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.WHITE
+        strokeJoin = Paint.Join.ROUND
+    }
     private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         isFakeBoldText = true
@@ -247,12 +271,29 @@ class CubeView(ctx: Context) : View(ctx) {
             cubies.add(Cubie(x, y, z, moving, tmp[2]))
         }
         cubies.sortBy { it.depth }
-        for (c in cubies) drawCubie(canvas, c, if (c.moving) ak else -1, angle)
+        hitIndex.clear()
+        hitQuads.clear()
+        // Lớp sắp xoay (hoặc đang xoay) được viền sáng để bé biết phải xoay phần nào.
+        val glowMove = if (animMove >= 0) animMove else pendingMove
+        var gk = -1
+        var gs = 0
+        if (glowMove >= 0) {
+            gk = Geometry.axisIndex(glowMove / 3)
+            gs = Geometry.axis[glowMove / 3][gk]
+        }
+        for (c in cubies) {
+            val coord = when (gk) {
+                0 -> c.x
+                1 -> c.y
+                else -> c.z
+            }
+            drawCubie(canvas, c, if (c.moving) ak else -1, angle, gk >= 0 && coord * gs == 1)
+        }
         if (pendingMove >= 0 && animMove < 0) drawArrow(canvas, pendingMove)
         if (highlightFace >= 0 && faceFacing(highlightFace, yaw, pitch) > 0.05f) drawOutline(canvas, highlightFace)
     }
 
-    private fun drawCubie(canvas: Canvas, c: Cubie, ak: Int, angle: Float) {
+    private fun drawCubie(canvas: Canvas, c: Cubie, ak: Int, angle: Float, glow: Boolean) {
         val p = intArrayOf(c.x, c.y, c.z)
         val h = 0.47f
         for (face in 0 until 6) {
@@ -276,6 +317,18 @@ class CubeView(ctx: Context) : View(ctx) {
                     quad(p, n, k, t1, t2, h + 0.002f, 0.39f, ak, angle)
                     rounded.color = shade(Palette.color(colors[idx]), 0.72f + 0.28f * facing)
                     canvas.drawPath(path, rounded)
+                    if (idx in suspects) {
+                        badPaint.strokeWidth = scale * 0.1f
+                        canvas.drawPath(path, badPaint)
+                    }
+                    if (glow) {
+                        glowPaint.strokeWidth = scale * 0.07f
+                        canvas.drawPath(path, glowPaint)
+                    }
+                    if (ak < 0) {
+                        hitIndex.add(idx)
+                        hitQuads.add(pts.copyOf())
+                    }
                 }
             }
         }
@@ -423,13 +476,47 @@ class CubeView(ctx: Context) : View(ctx) {
                 val dx = event.x - lastX
                 val dy = event.y - lastY
                 dragged += abs(dx) + abs(dy)
-                val k = 220f / min(width, height).coerceAtLeast(1)
-                yaw += dx * k
-                pitch = (pitch + dy * k).coerceIn(-85f, 85f)
+                if (dragged > touchSlop) {
+                    val k = 220f / min(width, height).coerceAtLeast(1)
+                    yaw += dx * k
+                    pitch = (pitch + dy * k).coerceIn(-85f, 85f)
+                }
                 lastX = event.x
                 lastY = event.y
-                invalidate()
+                if (dragged > touchSlop) invalidate()
             }
+            MotionEvent.ACTION_UP -> {
+                val listener = onSticker
+                if (listener != null && dragged <= touchSlop) {
+                    val i = stickerAt(event.x, event.y)
+                    if (i >= 0) listener(i)
+                }
+            }
+        }
+        return true
+    }
+
+    private val touchSlop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop * 1.5f
+
+    /** Ô nằm trên cùng tại điểm chạm, hoặc -1. */
+    private fun stickerAt(x: Float, y: Float): Int {
+        for (n in hitQuads.indices.reversed()) {
+            if (inside(hitQuads[n], x, y)) return hitIndex[n]
+        }
+        return -1
+    }
+
+    private fun inside(q: FloatArray, x: Float, y: Float): Boolean {
+        var sign = 0
+        for (i in 0 until 4) {
+            val ax = q[i * 2]
+            val ay = q[i * 2 + 1]
+            val bx = q[(i + 1) % 4 * 2]
+            val by = q[(i + 1) % 4 * 2 + 1]
+            val cross = (bx - ax) * (y - ay) - (by - ay) * (x - ax)
+            val s = if (cross > 0) 1 else if (cross < 0) -1 else 0
+            if (s == 0) continue
+            if (sign == 0) sign = s else if (s != sign) return false
         }
         return true
     }

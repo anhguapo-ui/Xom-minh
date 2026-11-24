@@ -67,7 +67,12 @@ class ScreenshotTest {
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         shot(activity, "$prefix-1-home")
         clickText(activity, "Nhập khối")
-        shot(activity, "$prefix-2-input-empty")
+        // Tô vài ô trên mặt trước như bé chạm vào khối.
+        call(activity, "pickBrush", 5)
+        for (i in intArrayOf(18, 19, 22, 26)) call(activity, "paintCell", i)
+        call(activity, "pickBrush", 2)
+        for (i in intArrayOf(20, 23, 9)) call(activity, "paintCell", i)
+        shot(activity, "$prefix-2-input-painting")
         call(activity, "sample")
         waitSolved(activity)
         shot(activity, "$prefix-4-solve-fast")
